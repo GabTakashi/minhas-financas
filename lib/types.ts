@@ -42,6 +42,14 @@ export interface Budget {
   limite: number;
 }
 
+export interface BudgetGroup {
+  id: string;
+  nome: string;
+  percentual: number;
+  categorias: string[];
+  ordem: number;
+}
+
 export interface InvoiceItem {
   purchaseId: string;
   descricao: string;

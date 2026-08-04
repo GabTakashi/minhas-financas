@@ -1,7 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import {
-  getCard, getMonthRow, listAllTransactions, listBudgets,
+  getCard, getMonthRow, listAllTransactions, listBudgetGroups, listBudgets,
   listInvoicePayments, listMonths, listPurchases, listTransactions,
 } from '@/lib/actions';
 
@@ -28,3 +28,6 @@ export const usePaidInvoices = () =>
 
 export const useBudgets = (month: string) =>
   useQuery({ queryKey: ['budgets', month], queryFn: () => listBudgets(month) });
+
+export const useBudgetGroups = () =>
+  useQuery({ queryKey: ['budget-groups'], queryFn: () => listBudgetGroups() });

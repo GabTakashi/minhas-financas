@@ -1,30 +1,33 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
+import BudgetGroups from '@/components/BudgetGroups';
 import PageHead from '@/components/PageHead';
 import { useMonth, useToast } from '@/components/Providers';
-import { useBudgets, useCard, usePurchases, useTransactions } from '@/hooks/useFinance';
+import { useBudgetGroups, useBudgets, useCard, usePurchases, useTransactions } from '@/hooks/useFinance';
 import { setBudget } from '@/lib/actions';
 import { CATEGORIAS } from '@/lib/categories';
 import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
-import { gastosPorCategoria } from '@/lib/totals';
+import { gastosPorCategoria, monthTotals } from '@/lib/totals';
 
 export default function Orcamento() {
   const { month } = useMonth();
   const qc = useQueryClient();
   const toast = useToast();
   const budgetsQ = useBudgets(month);
+  const groupsQ = useBudgetGroups();
   const txsQ = useTransactions(month);
   const cardQ = useCard();
   const purchasesQ = usePurchases();
 
-  if (budgetsQ.isLoading || txsQ.isLoading || cardQ.isLoading || purchasesQ.isLoading) {
+  if (budgetsQ.isLoading || groupsQ.isLoading || txsQ.isLoading || cardQ.isLoading || purchasesQ.isLoading) {
     return <p className="empty-row">Carregando…</p>;
   }
 
   const budgets = budgetsQ.data ?? [];
   const fatura = cardQ.data ? faturaDoMes(purchasesQ.data ?? [], cardQ.data, month) : { items: [], total: 0 };
   const gastos = gastosPorCategoria(txsQ.data ?? [], fatura.items);
+  const entradas = monthTotals(txsQ.data ?? [], fatura.total).entradas;
 
   async function setLimite(categoria: string, value: string) {
     const v = parseValorBR(value);
@@ -46,6 +49,7 @@ export default function Orcamento() {
   return (
     <>
       <PageHead title="Orçamento" sub="Defina limites por categoria e acompanhe o consumo do mês." />
+      <BudgetGroups groups={groupsQ.data ?? []} gastos={gastos} entradas={entradas} />
       <div className="card">
         {CATEGORIAS.map(categoria => {
           const b = budgets.find(x => x.categoria === categoria);
@@ -72,11 +76,11 @@ export default function Orcamento() {
             </div>
           );
         })}
-        <div className="budget-row" style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
+        <div className="budget-row" style={{ borderTop: '1px solid var(--border-soft)', marginTop: 4 }}>
           <span className="b-cat" style={{ fontWeight: 600 }}>Total</span>
           <span className="b-limit" style={{ border: 'none', background: 'none' }} />
           <div className="b-bar" style={{ visibility: 'hidden' }} />
-          <span className="b-spent" style={{ fontWeight: 600, color: 'var(--text)' }}>
+          <span className="b-spent" style={{ fontWeight: 600, color: 'var(--text-1)' }}>
             {fmtBRL(totalGasto)} de {fmtBRL(totalOrcado)}
           </span>
         </div>

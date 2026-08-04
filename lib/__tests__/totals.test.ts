@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gastosPorCategoria, monthTotals } from '@/lib/totals';
+import { budgetGroupTotals, gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
 import { InvoiceItem, Transaction } from '@/lib/types';
 
 function tx(p: Partial<Transaction>): Transaction {
@@ -27,6 +27,33 @@ describe('monthTotals', () => {
   });
 });
 
+describe('monthTotalsRealizado', () => {
+  const mistos: Transaction[] = [
+    tx({ type: 'entrada', valor: 2000, categoria: null, pago: true }),   // recebido
+    tx({ type: 'entrada', valor: 1000, categoria: null, pago: false }),  // a receber
+    tx({ type: 'fixo', valor: 500, categoria: 'Moradia', pago: true }),  // pago
+    tx({ type: 'fixo', valor: 300, categoria: 'Moradia', pago: false }), // pendente
+    tx({ type: 'variavel', valor: 200, categoria: 'Alimentação', pago: true }),
+    tx({ type: 'variavel', valor: 80, categoria: 'Lanche', pago: false }),
+  ];
+
+  it('soma só o que já foi recebido/pago, ignorando pendentes', () => {
+    const r = monthTotalsRealizado(mistos, 400, true);
+    expect(r.entradas).toBe(2000);
+    expect(r.fixos).toBe(500);
+    expect(r.variaveis).toBe(200);
+    expect(r.fatura).toBe(400);
+    expect(r.saidas).toBe(1100);
+    expect(r.saldo).toBe(900);
+  });
+
+  it('fatura não paga não entra nas saídas realizadas', () => {
+    const r = monthTotalsRealizado(mistos, 400, false);
+    expect(r.fatura).toBe(0);
+    expect(r.saidas).toBe(700);
+  });
+});
+
 describe('gastosPorCategoria', () => {
   it('soma lançamentos e parcelas do cartão por categoria; entradas ficam de fora', () => {
     const items: InvoiceItem[] = [
@@ -40,5 +67,53 @@ describe('gastosPorCategoria', () => {
   it('usa "Outros" quando a categoria é nula', () => {
     const g = gastosPorCategoria([tx({ type: 'variavel', categoria: null, valor: 40 })], []);
     expect(g['Outros']).toBe(40);
+  });
+});
+
+describe('gastosPorCategoriaRealizado', () => {
+  const mistos: Transaction[] = [
+    tx({ type: 'fixo', valor: 500, categoria: 'Moradia', pago: true }),
+    tx({ type: 'fixo', valor: 300, categoria: 'Moradia', pago: false }),
+    tx({ type: 'variavel', valor: 80, categoria: 'Lanche', pago: false }),
+  ];
+  const items: InvoiceItem[] = [
+    { purchaseId: 'p', descricao: 'Mercado', categoria: 'Alimentação', parcela: 1, parcelas: 1, valor: 150 },
+  ];
+
+  it('ignora lançamentos pendentes', () => {
+    const g = gastosPorCategoriaRealizado(mistos, [], true);
+    expect(g['Moradia']).toBe(500);
+    expect(g['Lanche']).toBeUndefined();
+  });
+
+  it('só soma as parcelas do cartão se a fatura estiver paga', () => {
+    expect(gastosPorCategoriaRealizado(mistos, items, true)['Alimentação']).toBe(150);
+    expect(gastosPorCategoriaRealizado(mistos, items, false)['Alimentação']).toBeUndefined();
+  });
+});
+
+describe('budgetGroupTotals', () => {
+  const gastos = { Moradia: 800, Alimentação: 350, Lanche: 60, Investimentos: 0 };
+  const grupos = [
+    { nome: 'Essenciais', percentual: 50, categorias: ['Moradia', 'Alimentação'] },
+    { nome: 'Não essenciais', percentual: 30, categorias: ['Lanche'] },
+    { nome: 'Investimentos', percentual: 20, categorias: ['Investimentos'] },
+  ];
+
+  it('calcula o orçado como % das entradas e soma o gasto das categorias do grupo', () => {
+    const r = budgetGroupTotals(grupos, gastos, 3000);
+    expect(r[0]).toMatchObject({ nome: 'Essenciais', orcado: 1500, gasto: 1150 });
+    expect(r[1]).toMatchObject({ nome: 'Não essenciais', orcado: 900, gasto: 60 });
+    expect(r[2]).toMatchObject({ nome: 'Investimentos', orcado: 600, gasto: 0 });
+  });
+
+  it('categoria sem gasto registrado conta como zero', () => {
+    const r = budgetGroupTotals([{ nome: 'X', percentual: 10, categorias: ['Educação'] }], gastos, 1000);
+    expect(r[0].gasto).toBe(0);
+  });
+
+  it('sem entradas, o orçado fica zero', () => {
+    const r = budgetGroupTotals(grupos, gastos, 0);
+    expect(r[0].orcado).toBe(0);
   });
 });

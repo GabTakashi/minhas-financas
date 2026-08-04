@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Controle de finanças pessoais',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f3f5f4',
-    theme_color: '#217a54',
+    background_color: '#08090F',
+    theme_color: '#08090F',
     icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
   };
 }

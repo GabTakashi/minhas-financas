@@ -141,7 +141,7 @@ export default function Cartao() {
       <div className="section">
         <div className="section-header">
           <h2>Fatura de {monthName(month)}</h2>
-          <span className="total" style={{ color: 'var(--red)' }}>{fmtBRL(fatura.total)}</span>
+          <span className="total" style={{ color: 'var(--expense)' }}>{fmtBRL(fatura.total)}</span>
         </div>
         <div className="table-wrap">
           <table>

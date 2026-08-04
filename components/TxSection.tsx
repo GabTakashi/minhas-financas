@@ -8,7 +8,7 @@ import { Transaction, TxType } from '@/lib/types';
 import { useMonth, useToast } from './Providers';
 
 export default function TxSection({ title, type, txs, color }: {
-  title: string; type: TxType; txs: Transaction[]; color: 'green' | 'red';
+  title: string; type: TxType; txs: Transaction[]; color: 'income' | 'expense';
 }) {
   const { month } = useMonth();
   const qc = useQueryClient();

@@ -20,24 +20,24 @@ export default function EvolutionChart({ data }: { data: EvoPoint[] }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Gráfico de evolução mensal">
-      <line x1={padL} y1={base} x2={W - padR} y2={base} stroke="var(--border)" />
+      <line x1={padL} y1={base} x2={W - padR} y2={base} stroke="var(--border-soft)" />
       {data.map((d, i) => {
         const cx = pts[i].cx;
         const hE = (d.entradas / maxVal) * innerH;
         const hS = (d.saidas / maxVal) * innerH;
         return (
           <g key={d.key}>
-            <rect x={cx - barW - 2} y={base - hE} width={barW} height={Math.max(hE, 1)} rx={5} fill="var(--green)" opacity={0.9} />
-            <rect x={cx + 2} y={base - hS} width={barW} height={Math.max(hS, 1)} rx={5} fill="var(--ink)" opacity={0.85} />
-            <text x={cx} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--text-subtle)">{shortMonth(d.key)}</text>
+            <rect x={cx - barW - 2} y={base - hE} width={barW} height={Math.max(hE, 1)} rx={5} fill="var(--income)" opacity={0.9} />
+            <rect x={cx + 2} y={base - hS} width={barW} height={Math.max(hS, 1)} rx={5} fill="var(--expense)" opacity={0.85} />
+            <text x={cx} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--text-3)">{shortMonth(d.key)}</text>
           </g>
         );
       })}
       {pts.length > 1 && (
-        <polyline points={pts.map(p => `${p.cx},${p.sy}`).join(' ')} fill="none" stroke="var(--red)" strokeWidth={2} strokeLinejoin="round" />
+        <polyline points={pts.map(p => `${p.cx},${p.sy}`).join(' ')} fill="none" stroke="var(--accent-500)" strokeWidth={2} strokeLinejoin="round" />
       )}
       {pts.map((p, i) => (
-        <circle key={data[i].key} cx={p.cx} cy={p.sy} r={3.5} fill="var(--red)" stroke="#fff" strokeWidth={1.5} />
+        <circle key={data[i].key} cx={p.cx} cy={p.sy} r={3.5} fill="var(--accent-500)" stroke="var(--surface-1)" strokeWidth={1.5} />
       ))}
     </svg>
   );

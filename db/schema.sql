@@ -67,6 +67,18 @@ create table budgets (
   unique (user_id, month, categoria)
 );
 
+-- grupos de orçamento (ex.: 50% Essenciais, 30% Não essenciais, 20% Investimentos)
+-- não são por mês: valem até o usuário mudar, como os cartões
+create table budget_groups (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  nome text not null,
+  percentual numeric not null check (percentual >= 0 and percentual <= 100),
+  categorias text[] not null default '{}',
+  ordem int not null default 0,
+  unique (user_id, nome)
+);
+
 -- gastos enviados pelo Telegram aguardando escolha de categoria (botões)
 create table telegram_pending (
   id uuid primary key default gen_random_uuid(),
@@ -82,3 +94,4 @@ create table telegram_pending (
 create index idx_transactions_user_month on transactions (user_id, month);
 create index idx_budgets_user_month on budgets (user_id, month);
 create index idx_purchases_user on card_purchases (user_id);
+create index idx_budget_groups_user on budget_groups (user_id);

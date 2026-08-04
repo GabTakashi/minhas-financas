@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMonth, useToast } from '@/components/Providers';
@@ -12,7 +13,7 @@ import { iniciarMes as iniciarMesAction, setMeta as setMetaAction } from '@/lib/
 import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
 import { monthName } from '@/lib/months';
-import { gastosPorCategoria, monthTotals } from '@/lib/totals';
+import { gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,6 +32,7 @@ export default function Home() {
   const purchasesQ = usePurchases();
   const paidQ = usePaidInvoices();
   const budgetsQ = useBudgets(month);
+  const [modo, setModo] = useState<'previsto' | 'realizado'>('previsto');
 
   const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ];
   if (queries.some(x => x.isLoading)) return <p className="empty-row">Carregando…</p>;
@@ -41,7 +43,9 @@ export default function Home() {
   const paidMonths = (paidQ.data ?? []).filter(p => p.pago).map(p => p.month);
   const txs = txsQ.data ?? [];
   const fatura = card ? faturaDoMes(purchases, card, month) : { items: [], total: 0 };
-  const t = monthTotals(txs, fatura.total);
+  const faturaPaga = paidMonths.includes(month);
+  const tPrevisto = monthTotals(txs, fatura.total);
+  const tRealizado = monthTotalsRealizado(txs, fatura.total, faturaPaga);
   const meta = Number(monthRow.data?.meta ?? 0);
 
   async function iniciarMes() {
@@ -73,7 +77,6 @@ export default function Home() {
   }
 
   // pendentes: lançamentos não pagos + fatura não paga
-  const faturaPaga = paidMonths.includes(month);
   const pend: { desc: string; tipo: string; dia: number | null; valor: number }[] = [
     ...txs.filter(x => x.type !== 'entrada' && !x.pago)
       .map(x => ({ desc: x.descricao, tipo: x.type === 'fixo' ? 'Fixo' : 'Variável', dia: x.dia_vencimento, valor: Number(x.valor) })),
@@ -81,19 +84,24 @@ export default function Home() {
       ? [{ desc: `Fatura ${card.nome}`, tipo: 'Cartão', dia: card.dia_vencimento as number | null, valor: fatura.total }] : []),
   ].sort((a, b) => (a.dia || 99) - (b.dia || 99));
 
-  const gastos = gastosPorCategoria(txs, fatura.items);
+  const gastos = modo === 'previsto'
+    ? gastosPorCategoria(txs, fatura.items)
+    : gastosPorCategoriaRealizado(txs, fatura.items, faturaPaga);
   const cats = Object.entries(gastos).sort((a, b) => b[1] - a[1]);
   const maxCat = cats.length ? cats[0][1] : 1;
 
   const evoKeys = (allMonths.data ?? []).map(m => m.month).filter(k => k <= month).slice(-12);
   const evo = evoKeys.map(k => {
     const f = card ? faturaDoMes(purchases, card, k).total : 0;
-    const tt = monthTotals((allTxs.data ?? []).filter(x => x.month === k), f);
+    const txsDoMes = (allTxs.data ?? []).filter(x => x.month === k);
+    const tt = modo === 'previsto'
+      ? monthTotals(txsDoMes, f)
+      : monthTotalsRealizado(txsDoMes, f, paidMonths.includes(k));
     return { key: k, entradas: tt.entradas, saidas: tt.saidas, saldo: tt.saldo };
   });
 
-  const metaPct = meta > 0 ? Math.max(0, Math.min(100, (t.saldo / meta) * 100)) : 0;
-  const metaOk = meta > 0 && t.saldo >= meta;
+  const metaPct = meta > 0 ? Math.max(0, Math.min(100, (tPrevisto.saldo / meta) * 100)) : 0;
+  const metaOk = meta > 0 && tPrevisto.saldo >= meta;
   const totalOrcado = (budgetsQ.data ?? []).reduce((s, b) => s + Number(b.limite), 0);
   const totalGasto = Object.values(gastos).reduce((s, v) => s + v, 0);
 
@@ -103,18 +111,18 @@ export default function Home() {
       <div className="summary">
         <div className="card highlight">
           <div className="label">Saldo do mês</div>
-          <div className="value">{fmtBRL(t.saldo)}</div>
-          <div className="sub">entradas − saídas (com fatura)</div>
+          <div className="value">{fmtBRL(tRealizado.saldo)}</div>
+          <div className="sub">previsto: {fmtBRL(tPrevisto.saldo)} · entradas − saídas (com fatura)</div>
         </div>
         <div className="card">
           <div className="label">Entradas</div>
-          <div className="value green">{fmtBRL(t.entradas)}</div>
-          <div className="sub">{txs.filter(x => x.type === 'entrada').length} lançamento(s)</div>
+          <div className="value green">{fmtBRL(tRealizado.entradas)}</div>
+          <div className="sub">previsto: {fmtBRL(tPrevisto.entradas)}</div>
         </div>
         <div className="card">
           <div className="label">Saídas</div>
-          <div className="value red">{fmtBRL(t.saidas)}</div>
-          <div className="sub">{fatura.total > 0 ? `inclui fatura de ${fmtBRL(fatura.total)}` : `${pend.length} conta(s) pendente(s)`}</div>
+          <div className="value red">{fmtBRL(tRealizado.saidas)}</div>
+          <div className="sub">previsto: {fmtBRL(tPrevisto.saidas)}</div>
         </div>
         <div className="card meta-card">
           <div className="label">Meta de economia</div>
@@ -126,24 +134,37 @@ export default function Home() {
             aria-label="Meta de economia do mês"
           />
           <div className="meta-bar"><div className={meta > 0 && !metaOk ? 'fail' : ''} style={{ width: `${meta > 0 ? metaPct : 0}%` }} /></div>
-          <div className="sub">{meta > 0 ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - t.saldo))} faltando`) : 'defina uma meta mensal'}</div>
+          <div className="sub">{meta > 0 ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - tPrevisto.saldo))} faltando`) : 'defina uma meta mensal'}</div>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {(['previsto', 'realizado'] as const).map(m => (
+          <button
+            key={m}
+            className="btn-ghost"
+            onClick={() => setModo(m)}
+            style={modo === m ? { borderColor: 'var(--primary-300)', background: 'rgba(191,169,242,.14)', color: 'var(--primary-300)', fontWeight: 600 } : undefined}
+          >
+            {m === 'previsto' ? 'Previsto' : 'Realizado'}
+          </button>
+        ))}
       </div>
 
       <div className="charts">
         <div className="card chart-card">
           <h3>Evolução mês a mês</h3>
-          <div className="card-sub">entradas, saídas e saldo dos últimos meses</div>
+          <div className="card-sub">entradas, saídas e saldo dos últimos meses · {modo === 'previsto' ? 'inclui pendentes' : 'só o que já foi pago'}</div>
           <EvolutionChart data={evo} />
           <div className="legend">
-            <span><i className="dot" style={{ background: 'var(--green)' }} />Entradas</span>
-            <span><i className="dot" style={{ background: 'var(--ink)' }} />Saídas</span>
-            <span><i className="dot" style={{ background: 'var(--red)' }} />Saldo</span>
+            <span><i className="dot" style={{ background: 'var(--income)' }} />Entradas</span>
+            <span><i className="dot" style={{ background: 'var(--expense)' }} />Saídas</span>
+            <span><i className="dot" style={{ background: 'var(--accent-500)' }} />Saldo</span>
           </div>
         </div>
         <div className="card chart-card">
           <h3>Gastos por categoria</h3>
-          <div className="card-sub">lançamentos + parcelas do cartão</div>
+          <div className="card-sub">lançamentos + parcelas do cartão · {modo === 'previsto' ? 'inclui pendentes' : 'só o que já foi pago'}</div>
           {cats.length === 0 && <div className="empty-row">Cadastre gastos para ver a divisão por categoria.</div>}
           {cats.map(([cat, val]) => (
             <div className="cat-row" key={cat}>
@@ -153,8 +174,8 @@ export default function Home() {
             </div>
           ))}
           {totalOrcado > 0 && (
-            <div className="cat-row" style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-              <span className="cat-name" style={{ color: 'var(--text)', fontWeight: 600 }}>Orçamento</span>
+            <div className="cat-row" style={{ marginTop: 14, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+              <span className="cat-name" style={{ color: 'var(--text-1)', fontWeight: 600 }}>Orçamento</span>
               <div style={{ flex: 1 }} />
               <span className="cat-val" style={{ width: 'auto' }}>{fmtBRL(totalGasto)} de {fmtBRL(totalOrcado)}</span>
             </div>
@@ -165,27 +186,27 @@ export default function Home() {
       <div className="card pending-card" style={{ marginBottom: 20 }}>
         <h3>Fixos vs Variáveis</h3>
         <div className="card-sub">
-          {t.saidas === 0
-            ? 'composição das saídas do mês'
-            : t.fixos === t.variaveis
-              ? 'fixos e variáveis empatados neste mês'
-              : `seu maior gasto do mês é com custos ${t.fixos > t.variaveis ? 'fixos' : 'variáveis'}`}
+          {tPrevisto.saidas === 0
+            ? 'composição das saídas previstas do mês (inclui pendentes)'
+            : tPrevisto.fixos === tPrevisto.variaveis
+              ? 'fixos e variáveis empatados neste mês · inclui pendentes'
+              : `seu maior gasto previsto do mês é com custos ${tPrevisto.fixos > tPrevisto.variaveis ? 'fixos' : 'variáveis'} · inclui pendentes`}
         </div>
-        {t.saidas === 0 ? (
+        {tPrevisto.saidas === 0 ? (
           <div className="empty-row" style={{ padding: '8px 0' }}>Sem saídas neste mês.</div>
         ) : (
           ([
-            ['Gastos fixos', t.fixos, 'var(--green)'],
-            ['Gastos variáveis', t.variaveis, 'var(--ink)'],
-            ...(t.fatura > 0 ? [['Fatura do cartão', t.fatura, 'var(--amber)'] as [string, number, string]] : []),
+            ['Gastos fixos', tPrevisto.fixos, 'var(--accent-500)'],
+            ['Gastos variáveis', tPrevisto.variaveis, 'var(--primary-400)'],
+            ...(tPrevisto.fatura > 0 ? [['Fatura do cartão', tPrevisto.fatura, 'var(--warning)'] as [string, number, string]] : []),
           ] as [string, number, string][]).map(([nome, valor, cor]) => (
             <div className="cat-row" key={nome}>
               <span className="cat-name" style={{ width: 140 }}>{nome}</span>
               <div className="cat-bar-wrap" style={{ height: 12 }}>
-                <div className="cat-bar" style={{ width: `${(valor / Math.max(1, t.fixos, t.variaveis, t.fatura)) * 100}%`, background: cor }} />
+                <div className="cat-bar" style={{ width: `${(valor / Math.max(1, tPrevisto.fixos, tPrevisto.variaveis, tPrevisto.fatura)) * 100}%`, background: cor }} />
               </div>
               <span className="cat-val" style={{ width: 160 }}>
-                {fmtBRL(valor)} ({Math.round((valor / t.saidas) * 100)}%)
+                {fmtBRL(valor)} ({Math.round((valor / tPrevisto.saidas) * 100)}%)
               </span>
             </div>
           ))
@@ -219,7 +240,7 @@ export default function Home() {
               <tr>
                 <td style={{ fontWeight: 600, paddingLeft: 0 }}>Total pendente</td>
                 <td className="hide-mobile" /><td />
-                <td className="num" style={{ fontWeight: 700, paddingRight: 0, color: 'var(--amber)' }}>
+                <td className="num" style={{ fontWeight: 700, paddingRight: 0, color: 'var(--warning)' }}>
                   {fmtBRL(pend.reduce((s, p) => s + p.valor, 0))}
                 </td>
               </tr>

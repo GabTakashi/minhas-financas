@@ -2,7 +2,7 @@
 import { auth } from '@/auth';
 import { sql } from '@/lib/db';
 import { iniciarMesParaUsuario } from '@/lib/newMonth';
-import { Budget, Card, CardPurchase, MonthRow, Transaction, TxType } from '@/lib/types';
+import { Budget, BudgetGroup, Card, CardPurchase, MonthRow, Transaction, TxType } from '@/lib/types';
 
 // Toda a segurança de acesso a dados vive aqui: cada action resolve o usuário
 // da sessão e escopa as queries por user_id (não há RLS como no Supabase).
@@ -63,6 +63,12 @@ export async function listBudgets(month: string): Promise<Budget[]> {
   const uid = await userId();
   return await sql`select id, month, categoria, limite::float as limite from budgets
     where user_id = ${uid} and month = ${month}` as Budget[];
+}
+
+export async function listBudgetGroups(): Promise<BudgetGroup[]> {
+  const uid = await userId();
+  return await sql`select id, nome, percentual::float as percentual, categorias, ordem
+    from budget_groups where user_id = ${uid} order by ordem` as BudgetGroup[];
 }
 
 /* ── meses ── */
@@ -155,19 +161,35 @@ export async function setBudget(month: string, categoria: string, limite: number
   }
 }
 
+export interface BudgetGroupInput { nome: string; percentual: number; categorias: string[] }
+
+/** Substitui todos os grupos de orçamento do usuário pela lista enviada. */
+export async function saveBudgetGroups(groups: BudgetGroupInput[]): Promise<void> {
+  const uid = await userId();
+  await sql`delete from budget_groups where user_id = ${uid}`;
+  let ordem = 0;
+  for (const g of groups) {
+    if (!g.nome.trim()) continue;
+    await sql`insert into budget_groups (user_id, nome, percentual, categorias, ordem)
+      values (${uid}, ${g.nome.trim()}, ${g.percentual}, ${g.categorias}, ${ordem})`;
+    ordem++;
+  }
+}
+
 /* ── backup / importação ── */
 
 export async function exportAll(): Promise<Record<string, unknown>> {
   const uid = await userId();
-  const [months, transactions, cards, purchases, payments, budgets] = await Promise.all([
+  const [months, transactions, cards, purchases, payments, budgets, budgetGroups] = await Promise.all([
     sql`select month, meta::float as meta from months where user_id = ${uid} order by month`,
     sql`select month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago from transactions where user_id = ${uid}`,
     sql`select nome, dia_fechamento, dia_vencimento, limite::float as limite from cards where user_id = ${uid}`,
     sql`select descricao, valor_total::float as valor_total, parcelas, data_compra::text as data_compra, categoria from card_purchases where user_id = ${uid}`,
     sql`select month, pago from card_invoice_payments where user_id = ${uid}`,
     sql`select month, categoria, limite::float as limite from budgets where user_id = ${uid}`,
+    sql`select nome, percentual::float as percentual, categorias, ordem from budget_groups where user_id = ${uid} order by ordem`,
   ]);
-  return { versao: 2, months, transactions, cards, purchases, payments, budgets };
+  return { versao: 2, months, transactions, cards, purchases, payments, budgets, budgetGroups };
 }
 
 interface LegacyItem { desc?: string; valor?: number; recebido?: boolean; pago?: boolean; cat?: string; dia?: number | null }

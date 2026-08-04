@@ -23,3 +23,6 @@ tsconfig.tsbuildinfo
 
 # projetos paralelos na mesma pasta (não fazem parte do app)
 n8n/
+
+# backups do banco de dados (dados pessoais, nunca versionar)
+backups/

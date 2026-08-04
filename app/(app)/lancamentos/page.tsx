@@ -22,9 +22,9 @@ export default function Lancamentos() {
         </div>
       ) : (
         <>
-          <TxSection title="Entradas" type="entrada" color="green" txs={txs.filter(t => t.type === 'entrada')} />
-          <TxSection title="Custos fixos" type="fixo" color="red" txs={txs.filter(t => t.type === 'fixo')} />
-          <TxSection title="Custos variáveis" type="variavel" color="red" txs={txs.filter(t => t.type === 'variavel')} />
+          <TxSection title="Entradas" type="entrada" color="income" txs={txs.filter(t => t.type === 'entrada')} />
+          <TxSection title="Custos fixos" type="fixo" color="expense" txs={txs.filter(t => t.type === 'fixo')} />
+          <TxSection title="Custos variáveis" type="variavel" color="expense" txs={txs.filter(t => t.type === 'variavel')} />
         </>
       )}
     </>

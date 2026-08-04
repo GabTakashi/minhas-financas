@@ -38,7 +38,7 @@ export default function Login() {
         <button type="submit" disabled={enviando}>
           {enviando ? 'Aguarde…' : 'Entrar'}
         </button>
-        <p style={{ marginTop: 12, fontSize: 12, textAlign: 'center', color: 'var(--text-subtle)' }}>
+        <p style={{ marginTop: 12, fontSize: 12, textAlign: 'center', color: 'var(--text-3)' }}>
           Na primeira vez, sua conta é criada automaticamente.<br />
           O login é sua chave de acesso — guarde-o como um segredo.
         </p>
