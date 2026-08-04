@@ -138,14 +138,9 @@ export default function Home() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="seg">
         {(['previsto', 'realizado'] as const).map(m => (
-          <button
-            key={m}
-            className="btn-ghost"
-            onClick={() => setModo(m)}
-            style={modo === m ? { borderColor: 'var(--primary-300)', background: 'rgba(191,169,242,.14)', color: 'var(--primary-300)', fontWeight: 600 } : undefined}
-          >
+          <button key={m} className={modo === m ? 'on' : ''} onClick={() => setModo(m)}>
             {m === 'previsto' ? 'Previsto' : 'Realizado'}
           </button>
         ))}
@@ -159,7 +154,7 @@ export default function Home() {
           <div className="legend">
             <span><i className="dot" style={{ background: 'var(--income)' }} />Entradas</span>
             <span><i className="dot" style={{ background: 'var(--expense)' }} />Saídas</span>
-            <span><i className="dot" style={{ background: 'var(--accent-500)' }} />Saldo</span>
+            <span><i className="dot" style={{ background: 'var(--primary)' }} />Saldo</span>
           </div>
         </div>
         <div className="card chart-card">
@@ -196,16 +191,16 @@ export default function Home() {
           <div className="empty-row" style={{ padding: '8px 0' }}>Sem saídas neste mês.</div>
         ) : (
           ([
-            ['Gastos fixos', tPrevisto.fixos, 'var(--accent-500)'],
-            ['Gastos variáveis', tPrevisto.variaveis, 'var(--primary-400)'],
+            ['Gastos fixos', tPrevisto.fixos, 'var(--primary-deep)'],
+            ['Gastos variáveis', tPrevisto.variaveis, 'var(--accent)'],
             ...(tPrevisto.fatura > 0 ? [['Fatura do cartão', tPrevisto.fatura, 'var(--warning)'] as [string, number, string]] : []),
           ] as [string, number, string][]).map(([nome, valor, cor]) => (
-            <div className="cat-row" key={nome}>
-              <span className="cat-name" style={{ width: 140 }}>{nome}</span>
+            <div className="cat-row wide" key={nome}>
+              <span className="cat-name">{nome}</span>
               <div className="cat-bar-wrap" style={{ height: 12 }}>
                 <div className="cat-bar" style={{ width: `${(valor / Math.max(1, tPrevisto.fixos, tPrevisto.variaveis, tPrevisto.fatura)) * 100}%`, background: cor }} />
               </div>
-              <span className="cat-val" style={{ width: 160 }}>
+              <span className="cat-val">
                 {fmtBRL(valor)} ({Math.round((valor / tPrevisto.saidas) * 100)}%)
               </span>
             </div>

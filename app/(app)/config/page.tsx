@@ -82,7 +82,7 @@ export default function Config() {
               key={valor}
               className="btn-ghost"
               onClick={() => aplicarTema(valor)}
-              style={tema === valor ? { borderColor: 'var(--primary-300)', background: 'rgba(191,169,242,.14)', color: 'var(--primary-300)', fontWeight: 600 } : undefined}
+              style={tema === valor ? { borderColor: 'var(--border-focus)', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 600 } : undefined}
             >
               {rotulo}
             </button>
