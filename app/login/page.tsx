@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import Logo from '@/components/Logo';
 
 export default function Login() {
   const [login, setLogin] = useState('');
@@ -23,6 +24,7 @@ export default function Login() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
+        <span className="auth-logo"><Logo size={34} /></span>
         <h1>Minhas Finanças</h1>
         {erro && <p className="auth-error">{erro}</p>}
         <input

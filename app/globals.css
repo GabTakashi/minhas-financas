@@ -67,6 +67,8 @@ body {
   font-size: 15px;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  /* segura o "rubber band" do iOS para o puxar-para-atualizar funcionar */
+  overscroll-behavior-y: contain;
 }
 h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; }
 a { color: var(--primary); }
@@ -85,11 +87,11 @@ a { color: var(--primary); }
   font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
   padding: 0 var(--s-1); margin-bottom: var(--s-7);
 }
+/* caixa escura para a marca colorida respirar */
 .brand-logo {
   width: 40px; height: 40px; border-radius: var(--r-sm); flex-shrink: 0;
-  background: var(--grad-btn); color: var(--on-primary);
+  background: var(--surface-2); border: 1px solid var(--border-medium);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--glow-primary);
 }
 .sidebar .brand small { display: block; font-size: 11px; font-weight: 400; color: var(--text-3); margin-top: 2px; }
 
@@ -117,6 +119,24 @@ a { color: var(--primary); }
   color: var(--on-primary); box-shadow: var(--glow-primary);
 }
 .sidebar .spacer { flex: 1; }
+
+/* ── Barra superior + gaveta (só no celular) ── */
+.topbar { display: none; }
+.drawer-backdrop { display: none; }
+.drawer-close { display: none; }
+
+/* ── Puxar para atualizar ── */
+.ptr {
+  position: fixed; top: 8px; left: 50%; z-index: 60;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--border-medium);
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; opacity: 0;
+  box-shadow: var(--sh-md);
+}
+.ptr:not(.on) { transition: transform 0.28s var(--ease), opacity 0.28s var(--ease); }
+.ptr.girando svg { animation: ptr-girar 0.8s linear infinite; }
+@keyframes ptr-girar { to { transform: rotate(360deg); } }
 
 /* ── Conteúdo principal ── */
 .main {
@@ -376,24 +396,58 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
   .cat-row .cat-val { width: 88px; }
 }
 
-/* ── Mobile ── */
+/* ── Mobile: a lateral vira gaveta e ganha uma barra superior ── */
 @media (max-width: 800px) {
-  .sidebar {
-    position: fixed; top: 0; left: 0; right: 0; bottom: auto; width: auto;
-    flex-direction: row; align-items: center; gap: var(--s-1);
-    padding: var(--s-2) var(--s-3); border-right: none; border-bottom: 1px solid var(--border-soft);
-    overflow-x: auto;
+  .topbar {
+    display: flex; align-items: center; gap: var(--s-3);
+    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    background: rgba(16,17,32,.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+    padding: var(--s-2) var(--s-3);
+    padding-top: calc(var(--s-2) + env(safe-area-inset-top));
+    height: calc(58px + env(safe-area-inset-top));
   }
-  .sidebar .brand { margin-bottom: 0; margin-right: var(--s-2); white-space: nowrap; }
-  .brand-logo { width: 32px; height: 32px; }
-  .sidebar .brand div { display: none; }
-  .nav-item { width: auto; margin-bottom: 0; gap: 0; }
-  .nav-item span { display: none; }
-  .nav-icon { width: 38px; height: 38px; }
-  .main { margin-left: 0; padding: 76px var(--s-3) 60px; }
-  .page-head { justify-content: center; }
-  .greeting { text-align: center; width: 100%; }
+  .menu-btn {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--r-sm);
+    background: var(--surface-2); border: 1px solid var(--border-medium); color: var(--text-1);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .menu-btn:active { background: var(--surface-3); }
+  .topbar-title { flex: 1; font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+  .topbar-logo { display: flex; align-items: center; }
+
+  .drawer-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 40;
+    background: rgba(4,4,10,.66); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity 0.28s var(--ease);
+  }
+  .drawer-backdrop.on { opacity: 1; pointer-events: auto; }
+
+  .sidebar {
+    width: 268px; z-index: 50;
+    padding-top: calc(var(--s-5) + env(safe-area-inset-top));
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
+    transform: translateX(-100%);
+    transition: transform 0.3s var(--ease);
+    box-shadow: none;
+  }
+  .sidebar.open { transform: none; box-shadow: var(--sh-lg); }
+  .sidebar .brand { position: relative; padding-right: 40px; }
+  .drawer-close {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 4px; right: 0; width: 32px; height: 32px;
+    background: none; border: none; color: var(--text-3); cursor: pointer;
+    border-radius: var(--r-xs);
+  }
+  .drawer-close:active { background: var(--surface-2); color: var(--text-1); }
+  /* alvos de toque maiores dentro da gaveta */
+  .nav-item { padding: var(--s-2) var(--s-1); }
+
+  .main { margin-left: 0; padding: calc(74px + env(safe-area-inset-top)) var(--s-3) 60px; }
+  .page-head { justify-content: flex-start; }
+  .greeting { width: 100%; }
   .greeting h1 { font-size: 22px; }
+  .ptr { top: calc(12px + env(safe-area-inset-top)); }
   .summary { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr; }
   .hide-mobile { display: none; }
@@ -424,6 +478,11 @@ a.nav-item { text-decoration: none; }
   background: var(--surface-1); border: 1px solid var(--border-soft);
   border-radius: var(--r-xl); padding: var(--s-6); width: 100%; max-width: 380px;
   box-shadow: var(--sh-lg), var(--sh-inset);
+}
+.auth-logo {
+  width: 54px; height: 54px; border-radius: var(--r-md); margin-bottom: var(--s-4);
+  background: var(--surface-2); border: 1px solid var(--border-medium);
+  display: flex; align-items: center; justify-content: center;
 }
 .auth-card h1 { font-size: 24px; margin-bottom: var(--s-5); letter-spacing: -0.03em; }
 .auth-card input {

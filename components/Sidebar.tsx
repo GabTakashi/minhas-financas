@@ -1,6 +1,8 @@
 'use client';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Logo from './Logo';
 
 const S = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
@@ -21,6 +23,38 @@ const PRINCIPAIS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [aberto, setAberto] = useState(false);
+  const toqueX = useRef<number | null>(null);
+
+  // fecha o menu ao trocar de página
+  useEffect(() => { setAberto(false); }, [pathname]);
+
+  // trava o scroll do fundo enquanto o menu está aberto
+  useEffect(() => {
+    document.body.style.overflow = aberto ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [aberto]);
+
+  // arrastar a partir da borda esquerda abre o menu
+  useEffect(() => {
+    function inicio(e: TouchEvent) {
+      toqueX.current = e.touches[0].clientX <= 28 ? e.touches[0].clientX : null;
+    }
+    function move(e: TouchEvent) {
+      if (toqueX.current === null) return;
+      if (e.touches[0].clientX - toqueX.current > 45) { setAberto(true); toqueX.current = null; }
+    }
+    function fim() { toqueX.current = null; }
+    document.addEventListener('touchstart', inicio, { passive: true });
+    document.addEventListener('touchmove', move, { passive: true });
+    document.addEventListener('touchend', fim, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', inicio);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', fim);
+    };
+  }, []);
+
   const item = ([href, label, icon]: readonly [string, string, React.ReactNode]) => (
     <Link key={href} href={href} className={`nav-item ${pathname === href ? 'active' : ''}`}>
       <span className="nav-icon">{icon}</span>
@@ -28,17 +62,33 @@ export default function Sidebar() {
     </Link>
   );
 
+  const atual = [...PRINCIPAIS, ['/config', 'Ajustes'] as const].find(i => i[0] === pathname)?.[1] ?? 'Minhas Finanças';
+
   return (
-    <nav className="sidebar">
-      <div className="brand">
-        <span className="brand-logo">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="22" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-        </span>
-        <div>Minhas Finanças<small>controle pessoal</small></div>
-      </div>
-      {PRINCIPAIS.map(item)}
-      <div className="spacer" />
-      {item(['/config', 'Ajustes', ICONS.ajustes])}
-    </nav>
+    <>
+      {/* barra superior — só aparece no celular */}
+      <header className="topbar">
+        <button className="menu-btn" onClick={() => setAberto(true)} aria-label="Abrir menu" aria-expanded={aberto}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </button>
+        <span className="topbar-title">{atual}</span>
+        <span className="topbar-logo"><Logo size={24} /></span>
+      </header>
+
+      <div className={`drawer-backdrop ${aberto ? 'on' : ''}`} onClick={() => setAberto(false)} aria-hidden="true" />
+
+      <nav className={`sidebar ${aberto ? 'open' : ''}`}>
+        <div className="brand">
+          <span className="brand-logo"><Logo size={26} /></span>
+          <div>Minhas Finanças<small>controle pessoal</small></div>
+          <button className="drawer-close" onClick={() => setAberto(false)} aria-label="Fechar menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        {PRINCIPAIS.map(item)}
+        <div className="spacer" />
+        {item(['/config', 'Ajustes', ICONS.ajustes])}
+      </nav>
+    </>
   );
 }
