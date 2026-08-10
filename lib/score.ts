@@ -58,21 +58,24 @@ export function coefVariacao(valores: number[]): number {
 /**
  * @param mes        resumo do mês avaliado
  * @param historico  meses anteriores (mais recentes por último), para estabilidade
- * @param meta       meta de economia do mês (0 = não definida)
+ * @param meta       meta de economia do mês em R$ (0 = não definida)
  * @param parcelasFuturas total ainda a pagar em parcelas de cartão
+ * @param metaPct    % da renda que o usuário quer poupar (nota cheia do pilar Poupança)
  */
 export function calcularIpf(
   mes: ResumoMes,
   historico: ResumoMes[],
   meta: number,
   parcelasFuturas = 0,
+  metaPct = 20,
 ): Ipf {
+  const alvoPoupanca = Math.max(1, metaPct) / 100;
   const pilares: Pilar[] = [];
   const alertas: { titulo: string; texto: string }[] = [];
 
-  // 1. Poupança — 20% da renda poupada vale a nota cheia
+  // 1. Poupança — poupar a % definida nas configurações vale a nota cheia
   const taxa = mes.entradas > 0 ? mes.poupado / mes.entradas : 0;
-  const pPoupanca = pontos(taxa / 0.2);
+  const pPoupanca = pontos(taxa / alvoPoupanca);
   pilares.push({
     chave: 'poupanca',
     nome: 'Poupança',
@@ -82,7 +85,7 @@ export function calcularIpf(
       ? 'Registre suas entradas do mês para calcular este pilar.'
       : taxa <= 0
         ? 'Você não poupou neste mês — as saídas consumiram toda a renda.'
-        : `Você poupou ${pct(taxa)} da sua renda. A nota cheia vem a partir de 20%.`,
+        : `Você poupou ${pct(taxa)} da sua renda. A nota cheia vem a partir de ${Math.round(alvoPoupanca * 100)}%.`,
   });
   if (mes.entradas > 0 && taxa <= 0) {
     alertas.push({ titulo: 'Falta de poupança', texto: 'Nenhum valor sobrou neste mês, o que fragiliza sua saúde financeira.' });

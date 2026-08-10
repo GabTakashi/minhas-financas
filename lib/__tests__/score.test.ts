@@ -78,6 +78,13 @@ describe('calcularIpf', () => {
     expect(r.pilares).toHaveLength(4);
   });
 
+  it('a meta de poupança configurada muda o alvo do pilar', () => {
+    const m = mes({ poupado: 500, entradas: 5000 }); // poupou 10%
+    // alvo 10% → nota cheia; alvo 40% → um quarto da nota
+    expect(calcularIpf(m, [], 0, 0, 10).pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(25);
+    expect(calcularIpf(m, [], 0, 0, 40).pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(6);
+  });
+
   it('mês sem entradas não quebra o cálculo', () => {
     const r = calcularIpf(mes({ entradas: 0, saidas: 300, poupado: -300 }), [], 0);
     expect(r.total).toBeGreaterThanOrEqual(0);

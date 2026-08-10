@@ -65,6 +65,19 @@ export async function listBudgets(month: string): Promise<Budget[]> {
     where user_id = ${uid} and month = ${month}` as Budget[];
 }
 
+/** Preferências do usuário. */
+export async function getMetaPct(): Promise<number> {
+  const uid = await userId();
+  const rows = await sql`select meta_pct::float as meta_pct from users where id = ${uid}`;
+  return (rows[0]?.meta_pct as number | undefined) ?? 20;
+}
+
+export async function setMetaPct(pct: number): Promise<void> {
+  const uid = await userId();
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  await sql`update users set meta_pct = ${v} where id = ${uid}`;
+}
+
 /** Datas ('YYYY-MM-DD', fuso de SP) em que o usuário registrou algo — base da constância. */
 export async function listDiasRegistrados(): Promise<string[]> {
   const uid = await userId();

@@ -3,6 +3,8 @@
 create table users (
   id uuid primary key default gen_random_uuid(),
   login text not null unique,
+  -- % da renda que o usuário quer poupar; alimenta o pilar Poupança do IPF
+  meta_pct numeric not null default 20,
   created_at timestamptz not null default now()
 );
 

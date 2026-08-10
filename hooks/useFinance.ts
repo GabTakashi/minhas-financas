@@ -1,7 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import {
-  getCard, getMonthRow, listAllTransactions, listBudgetGroups, listBudgets,
+  getCard, getMetaPct, getMonthRow, listAllTransactions, listBudgetGroups, listBudgets,
   listDiasRegistrados, listInvoicePayments, listMonths, listPurchases, listTransactions,
 } from '@/lib/actions';
 
@@ -34,3 +34,6 @@ export const useBudgetGroups = () =>
 
 export const useDiasRegistrados = () =>
   useQuery({ queryKey: ['dias-registrados'], queryFn: () => listDiasRegistrados() });
+
+export const useMetaPct = () =>
+  useQuery({ queryKey: ['meta-pct'], queryFn: () => getMetaPct() });

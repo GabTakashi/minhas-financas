@@ -3,7 +3,7 @@ import PageHead from '@/components/PageHead';
 import ScorePainel, { corDaFaixa } from '@/components/ScorePainel';
 import { useMonth } from '@/components/Providers';
 import {
-  useAllMonths, useAllTransactions, useCard, useMonthRow, usePaidInvoices, usePurchases,
+  useAllMonths, useAllTransactions, useCard, useMetaPct, useMonthRow, usePaidInvoices, usePurchases,
 } from '@/hooks/useFinance';
 import { limiteUtilizado } from '@/lib/invoice';
 import { todayKey } from '@/lib/months';
@@ -19,8 +19,9 @@ export default function Desempenho() {
   const cardQ = useCard();
   const purchasesQ = usePurchases();
   const paidQ = usePaidInvoices();
+  const metaPctQ = useMetaPct();
 
-  const queries = [monthRow, allMonths, allTxs, cardQ, purchasesQ, paidQ];
+  const queries = [monthRow, allMonths, allTxs, cardQ, purchasesQ, paidQ, metaPctQ];
   if (queries.some(q => q.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(q => q.isError)) return <p className="empty-row">Erro ao carregar dados — recarregue a página.</p>;
 
@@ -36,14 +37,15 @@ export default function Desempenho() {
   const meta = Number(monthRow.data?.meta ?? 0);
   const parcelasFuturas = card ? limiteUtilizado(purchases, card, pagos, todayKey()) : 0;
 
-  const ipf = calcularIpf(resumo, historico, meta, parcelasFuturas);
+  const metaPct = metaPctQ.data ?? 20;
+  const ipf = calcularIpf(resumo, historico, meta, parcelasFuturas, metaPct);
 
   // evolução: até 6 meses, incluindo o atual
   const chaves = [...anteriores.slice(-5), month];
   const evolucao = chaves.map(k => {
     const r = k === month ? resumo : historico.find(h => h.month === k)!;
     const antes = serieDeResumos(txs, purchases, card, anteriores.filter(a => a < k));
-    return { key: k, total: calcularIpf(r, antes, meta, parcelasFuturas).total };
+    return { key: k, total: calcularIpf(r, antes, meta, parcelasFuturas, metaPct).total };
   });
 
   const W = 640, H = 190, padL = 34, padR = 12, padT = 14, padB = 26;

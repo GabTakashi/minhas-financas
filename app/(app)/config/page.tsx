@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { signOut } from 'next-auth/react';
 import PageHead from '@/components/PageHead';
 import { useToast } from '@/components/Providers';
-import { exportAll, importLegacy } from '@/lib/actions';
+import { exportAll, importLegacy, setMetaPct } from '@/lib/actions';
+import { useMetaPct } from '@/hooks/useFinance';
 import { todayKey } from '@/lib/months';
 
 export default function Config() {
@@ -13,6 +14,30 @@ export default function Config() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState(false);
   const [tema, setTema] = useState<'auto' | 'light' | 'dark'>('auto');
+  const metaPctQ = useMetaPct();
+  const [pct, setPct] = useState('');
+  const [salvandoPct, setSalvandoPct] = useState(false);
+
+  // preenche o campo assim que a preferência chega do banco
+  useEffect(() => {
+    if (metaPctQ.data != null && pct === '') setPct(String(metaPctQ.data));
+  }, [metaPctQ.data, pct]);
+
+  async function salvarPct() {
+    const v = Number(pct);
+    if (!Number.isFinite(v) || v < 0 || v > 100) { toast('Informe um valor entre 0 e 100'); return; }
+    setSalvandoPct(true);
+    try {
+      await setMetaPct(v);
+    } catch {
+      toast('Erro ao salvar');
+      setSalvandoPct(false);
+      return;
+    }
+    setSalvandoPct(false);
+    qc.invalidateQueries();
+    toast('Meta de poupança atualizada');
+  }
 
   useEffect(() => {
     const t = localStorage.getItem('tema');
@@ -89,6 +114,30 @@ export default function Config() {
           ))}
         </div>
       </div>
+      <div className="card" style={{ maxWidth: 560, marginBottom: 16 }}>
+        <h3 style={{ marginBottom: 4 }}>Meta de poupança</h3>
+        <div className="card-sub" style={{ marginBottom: 14 }}>
+          Quanto da sua renda você quer poupar por mês. É esse alvo que dá a nota cheia
+          no pilar <strong>Poupança</strong> do seu Desempenho.
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="number" min={0} max={100} value={pct}
+            onChange={e => setPct(e.target.value)}
+            aria-label="Meta de poupança em porcentagem"
+            style={{
+              width: 100, background: 'var(--surface-2)', border: '1px solid var(--border-medium)',
+              color: 'var(--text-1)', borderRadius: 'var(--r-sm)', padding: '10px 12px',
+              fontFamily: 'var(--font-mono)', fontSize: 14,
+            }}
+          />
+          <span className="card-sub">% da renda</span>
+          <button className="btn-primary" onClick={salvarPct} disabled={salvandoPct}>
+            {salvandoPct ? 'Salvando…' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+
       <div className="card" style={{ maxWidth: 560, marginBottom: 16 }}>
         <h3 style={{ marginBottom: 4 }}>Backup</h3>
         <div className="card-sub" style={{ marginBottom: 14 }}>Baixe uma cópia de todos os seus dados em JSON.</div>

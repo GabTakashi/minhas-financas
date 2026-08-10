@@ -453,6 +453,24 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 /* botão flutuante (só no celular) */
 .fab { display: none; }
 
+/* ── Parcelados ── */
+.parcelado { margin-bottom: var(--s-3); }
+.parcelado.quitado { opacity: .68; }
+.parcelado-topo { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-4); }
+.parcelado-nome { flex: 1; min-width: 0; }
+.parcelado-nome strong { display: block; font-size: 14.5px; font-weight: 500; }
+.parcelado-nome .card-sub { display: block; margin-top: 2px; }
+.parcelado-valores { text-align: right; flex-shrink: 0; }
+.parcelado-valores .tx-valor { display: block; }
+.parcelado-valores .card-sub { display: block; margin-top: 2px; }
+.parcelado-barra { height: 7px; background: var(--surface-3); border-radius: var(--r-full); overflow: hidden; }
+.parcelado-barra div { height: 100%; border-radius: var(--r-full); transition: width 0.4s var(--ease); }
+.parcelado-rodape {
+  display: flex; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap;
+  font-size: 12px; color: var(--text-3); margin-top: var(--s-2);
+}
+.status-tag.ok { background: var(--income-soft); color: var(--income); }
+
 /* ── Modal ── */
 .modal-fundo {
   position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;

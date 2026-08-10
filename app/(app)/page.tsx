@@ -9,7 +9,7 @@ import Constancia from '@/components/Constancia';
 import ScorePainel from '@/components/ScorePainel';
 import {
   useAllMonths, useAllTransactions, useBudgets, useCard, useDiasRegistrados,
-  useMonthRow, usePaidInvoices, usePurchases, useTransactions,
+  useMetaPct, useMonthRow, usePaidInvoices, usePurchases, useTransactions,
 } from '@/hooks/useFinance';
 import { iniciarMes as iniciarMesAction, setMeta as setMetaAction } from '@/lib/actions';
 import { faturaDoMes, limiteUtilizado } from '@/lib/invoice';
@@ -37,9 +37,10 @@ export default function Home() {
   const paidQ = usePaidInvoices();
   const budgetsQ = useBudgets(month);
   const diasQ = useDiasRegistrados();
+  const metaPctQ = useMetaPct();
   const [modo, setModo] = useState<'previsto' | 'realizado'>('previsto');
 
-  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, diasQ];
+  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, diasQ, metaPctQ];
   if (queries.some(x => x.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(x => x.isError)) return <p className="empty-row">Erro ao carregar dados — verifique sua conexão e recarregue.</p>;
 
@@ -112,6 +113,7 @@ export default function Home() {
     serieDeResumos(allTxs.data ?? [], purchases, card, mesesAnteriores),
     meta,
     card ? limiteUtilizado(purchases, card, paidMonths, todayKey()) : 0,
+    metaPctQ.data ?? 20,
   );
 
   const metaPct = meta > 0 ? Math.max(0, Math.min(100, (tPrevisto.saldo / meta) * 100)) : 0;
