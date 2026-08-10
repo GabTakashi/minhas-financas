@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getCard, getMonthRow, listAllTransactions, listBudgetGroups, listBudgets,
-  listInvoicePayments, listMonths, listPurchases, listTransactions,
+  listDiasRegistrados, listInvoicePayments, listMonths, listPurchases, listTransactions,
 } from '@/lib/actions';
 
 export const useMonthRow = (month: string) =>
@@ -31,3 +31,6 @@ export const useBudgets = (month: string) =>
 
 export const useBudgetGroups = () =>
   useQuery({ queryKey: ['budget-groups'], queryFn: () => listBudgetGroups() });
+
+export const useDiasRegistrados = () =>
+  useQuery({ queryKey: ['dias-registrados'], queryFn: () => listDiasRegistrados() });

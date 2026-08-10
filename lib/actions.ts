@@ -65,6 +65,15 @@ export async function listBudgets(month: string): Promise<Budget[]> {
     where user_id = ${uid} and month = ${month}` as Budget[];
 }
 
+/** Datas ('YYYY-MM-DD', fuso de SP) em que o usuário registrou algo — base da constância. */
+export async function listDiasRegistrados(): Promise<string[]> {
+  const uid = await userId();
+  const rows = await sql`select distinct
+    to_char(created_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD') as dia
+    from transactions where user_id = ${uid} order by dia`;
+  return rows.map(r => r.dia as string);
+}
+
 export async function listBudgetGroups(): Promise<BudgetGroup[]> {
   const uid = await userId();
   return await sql`select id, nome, percentual::float as percentual, categorias, ordem

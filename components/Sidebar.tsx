@@ -11,6 +11,7 @@ const ICONS = {
   lista: <svg {...S}><rect x="4" y="3" width="16" height="18" rx="2.5" /><path d="M8.2 8.5h7.6M8.2 12h7.6M8.2 15.5h4.6" /></svg>,
   cartao: <svg {...S}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 9.8h19" /><path d="M6.5 15h3" /></svg>,
   grafico: <svg {...S}><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M14.5 2.6A9 9 0 0 1 21.4 9.5h-6.9z" /></svg>,
+  pulso: <svg {...S}><path d="M2.5 12h4l2.5-6.5 4.5 13 2.5-6.5h5.5" /></svg>,
   ajustes: <svg {...S}><circle cx="12" cy="12" r="3.2" /><path d="M19.4 14.5a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.47 1z" /></svg>,
 };
 
@@ -19,6 +20,7 @@ const PRINCIPAIS = [
   ['/lancamentos', 'Lançamentos', ICONS.lista],
   ['/cartao', 'Cartão', ICONS.cartao],
   ['/orcamento', 'Orçamento', ICONS.grafico],
+  ['/desempenho', 'Desempenho', ICONS.pulso],
 ] as const;
 
 export default function Sidebar() {

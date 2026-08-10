@@ -5,14 +5,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMonth, useToast } from '@/components/Providers';
 import PageHead from '@/components/PageHead';
 import EvolutionChart from '@/components/EvolutionChart';
+import Constancia from '@/components/Constancia';
+import ScorePainel from '@/components/ScorePainel';
 import {
-  useAllMonths, useAllTransactions, useBudgets, useCard,
+  useAllMonths, useAllTransactions, useBudgets, useCard, useDiasRegistrados,
   useMonthRow, usePaidInvoices, usePurchases, useTransactions,
 } from '@/hooks/useFinance';
 import { iniciarMes as iniciarMesAction, setMeta as setMetaAction } from '@/lib/actions';
-import { faturaDoMes } from '@/lib/invoice';
+import { faturaDoMes, limiteUtilizado } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
-import { monthName } from '@/lib/months';
+import { monthName, todayKey } from '@/lib/months';
+import { resumoDoMes, serieDeResumos } from '@/lib/resumo';
+import { calcularIpf } from '@/lib/score';
 import { gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
 
 function greeting() {
@@ -32,9 +36,10 @@ export default function Home() {
   const purchasesQ = usePurchases();
   const paidQ = usePaidInvoices();
   const budgetsQ = useBudgets(month);
+  const diasQ = useDiasRegistrados();
   const [modo, setModo] = useState<'previsto' | 'realizado'>('previsto');
 
-  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ];
+  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, diasQ];
   if (queries.some(x => x.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(x => x.isError)) return <p className="empty-row">Erro ao carregar dados — verifique sua conexão e recarregue.</p>;
 
@@ -100,6 +105,15 @@ export default function Home() {
     return { key: k, entradas: tt.entradas, saidas: tt.saidas, saldo: tt.saldo };
   });
 
+  // IPF do mês, com os meses anteriores servindo de base para a estabilidade
+  const mesesAnteriores = (allMonths.data ?? []).map(m => m.month).filter(k => k < month).slice(-11);
+  const ipf = calcularIpf(
+    resumoDoMes(txs, purchases, card, month),
+    serieDeResumos(allTxs.data ?? [], purchases, card, mesesAnteriores),
+    meta,
+    card ? limiteUtilizado(purchases, card, paidMonths, todayKey()) : 0,
+  );
+
   const metaPct = meta > 0 ? Math.max(0, Math.min(100, (tPrevisto.saldo / meta) * 100)) : 0;
   const metaOk = meta > 0 && tPrevisto.saldo >= meta;
   const totalOrcado = (budgetsQ.data ?? []).reduce((s, b) => s + Number(b.limite), 0);
@@ -136,6 +150,11 @@ export default function Home() {
           <div className="meta-bar"><div className={meta > 0 && !metaOk ? 'fail' : ''} style={{ width: `${meta > 0 ? metaPct : 0}%` }} /></div>
           <div className="sub">{meta > 0 ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - tPrevisto.saldo))} faltando`) : 'defina uma meta mensal'}</div>
         </div>
+      </div>
+
+      <div className="painel-duplo">
+        <ScorePainel ipf={ipf} />
+        <Constancia datas={diasQ.data ?? []} month={month} />
       </div>
 
       <div className="seg">
