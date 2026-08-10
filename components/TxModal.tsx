@@ -1,0 +1,164 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { insertTransaction, setTransactionPago, updateTransaction } from '@/lib/actions';
+import { CATEGORIAS, iconeDe } from '@/lib/categories';
+import { Transaction, TxType } from '@/lib/types';
+import { useMonth, useToast } from './Providers';
+
+const ATALHOS = [10, 20, 50, 100, 200];
+
+/** Só dígitos → valor em reais (os 2 últimos dígitos são os centavos). */
+const emReais = (digitos: string) => Number(digitos || '0') / 100;
+const formata = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export default function TxModal({ editando, aoFechar }: {
+  editando: Transaction | null;
+  aoFechar: () => void;
+}) {
+  const { month } = useMonth();
+  const qc = useQueryClient();
+  const toast = useToast();
+
+  const inicial = editando;
+  const [tipo, setTipo] = useState<TxType>(inicial?.type ?? 'variavel');
+  const [digitos, setDigitos] = useState(inicial ? String(Math.round(Number(inicial.valor) * 100)) : '');
+  const [desc, setDesc] = useState(inicial?.descricao ?? '');
+  const [cat, setCat] = useState<string>(inicial?.categoria ?? CATEGORIAS[0]);
+  const [dia, setDia] = useState(inicial?.dia_vencimento ? String(inicial.dia_vencimento) : '');
+  const [pago, setPago] = useState(inicial?.pago ?? false);
+  const [salvando, setSalvando] = useState(false);
+
+  const isEntrada = tipo === 'entrada';
+  const valor = emReais(digitos);
+
+  // Esc fecha o modal
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') aoFechar(); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [aoFechar]);
+
+  function digitar(bruto: string) {
+    const so = bruto.replace(/\D/g, '').slice(0, 11);
+    setDigitos(so);
+  }
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!desc.trim()) { toast('Digite uma descrição'); return; }
+    if (valor <= 0) { toast('Informe um valor maior que zero'); return; }
+
+    const linha = {
+      month, type: tipo, descricao: desc.trim(), valor,
+      categoria: isEntrada ? null : cat,
+      dia_vencimento: !isEntrada && dia ? Number(dia) : null,
+    };
+    setSalvando(true);
+    try {
+      if (editando) {
+        await updateTransaction(editando.id, linha);
+        // o status é uma action à parte — só chama se mudou
+        if (pago !== editando.pago) await setTransactionPago(editando.id, pago);
+      } else {
+        await insertTransaction(linha);
+      }
+    } catch {
+      toast('Erro ao salvar — tente novamente');
+      setSalvando(false);
+      return;
+    }
+    setSalvando(false);
+    qc.invalidateQueries();
+    toast(editando ? 'Lançamento atualizado' : 'Lançamento adicionado');
+    aoFechar();
+  }
+
+  return (
+    <div className="modal-fundo" onClick={aoFechar}>
+      <form className="modal modal-tx" onClick={e => e.stopPropagation()} onSubmit={salvar}>
+        <div className="section-header" style={{ marginBottom: 'var(--s-4)' }}>
+          <h3>{editando ? 'Editar lançamento' : 'Novo lançamento'}</h3>
+          <button type="button" className="icon-btn" onClick={aoFechar} aria-label="Fechar">✕</button>
+        </div>
+
+        {/* Despesa | Receita */}
+        <div className="tipo-abas">
+          <button type="button" className={!isEntrada ? 'on despesa' : ''}
+            onClick={() => setTipo(t => (t === 'entrada' ? 'variavel' : t))}>Despesa</button>
+          <button type="button" className={isEntrada ? 'on receita' : ''}
+            onClick={() => setTipo('entrada')}>Receita</button>
+        </div>
+
+        <label className="campo-valor">
+          <span className="card-label" style={{ marginBottom: 'var(--s-2)' }}>Valor</span>
+          <span className={`valor-linha ${isEntrada ? 'receita' : 'despesa'}`}>
+            <span className="valor-moeda">R$</span>
+            <input
+              inputMode="numeric" autoFocus={!editando}
+              value={formata(valor)} onChange={e => digitar(e.target.value)}
+              aria-label="Valor do lançamento"
+            />
+          </span>
+        </label>
+
+        <div className="atalhos">
+          {ATALHOS.map(v => (
+            <button type="button" key={v} className="chip" onClick={() => setDigitos(String(v * 100))}>
+              R$ {v}
+            </button>
+          ))}
+          {digitos && <button type="button" className="chip" onClick={() => setDigitos('')}>limpar</button>}
+        </div>
+
+        <label className="campo">
+          <span>Descrição</span>
+          <input
+            placeholder={isEntrada ? 'Ex.: salário, freela…' : 'Ex.: mercado, aluguel…'}
+            value={desc} onChange={e => setDesc(e.target.value)} autoComplete="off"
+          />
+        </label>
+
+        {!isEntrada && (
+          <>
+            <div className="campo">
+              <span>Tipo de despesa</span>
+              <div className="seg" style={{ marginBottom: 0 }}>
+                <button type="button" className={tipo === 'variavel' ? 'on' : ''} onClick={() => setTipo('variavel')}>Variável</button>
+                <button type="button" className={tipo === 'fixo' ? 'on' : ''} onClick={() => setTipo('fixo')}>Fixo</button>
+              </div>
+            </div>
+
+            <label className="campo">
+              <span>Categoria</span>
+              <select value={cat} onChange={e => setCat(e.target.value)}>
+                {CATEGORIAS.map(c => <option key={c} value={c}>{iconeDe(c)}  {c}</option>)}
+              </select>
+            </label>
+
+            <label className="campo">
+              <span>Dia do vencimento <span className="card-sub">(opcional)</span></span>
+              <input type="number" min={1} max={31} placeholder="ex.: 10"
+                value={dia} onChange={e => setDia(e.target.value)} />
+            </label>
+          </>
+        )}
+
+        {editando && (
+          <label className="campo-check">
+            <input type="checkbox" checked={pago} onChange={e => setPago(e.target.checked)} />
+            <span>{isEntrada ? 'Já recebido' : 'Já pago'}</span>
+          </label>
+        )}
+
+        <div className="grupo-actions" style={{ marginTop: 'var(--s-5)' }}>
+          <button type="submit" className="btn-primary" disabled={salvando}>
+            {salvando ? 'Salvando…' : editando ? 'Salvar' : 'Adicionar'}
+          </button>
+          <button type="button" className="btn-ghost" onClick={aoFechar}>Cancelar</button>
+        </div>
+      </form>
+    </div>
+  );
+}
