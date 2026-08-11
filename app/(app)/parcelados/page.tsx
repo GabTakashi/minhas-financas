@@ -69,7 +69,7 @@ export default function Parcelados() {
     <>
       <PageHead title="Parcelados" sub="Compromissos que se repetem: parcelamentos, financiamentos e recorrentes." />
 
-      <div className="summary" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+      <div className="summary tres">
         <div className="card highlight">
           <div className="label">Ainda a pagar</div>
           <div className="value">{fmtBRL(restanteTotal)}</div>

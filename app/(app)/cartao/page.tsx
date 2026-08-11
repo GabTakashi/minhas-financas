@@ -116,7 +116,7 @@ export default function Cartao() {
   return (
     <>
       <PageHead title={card.nome} sub="Compras, parcelas e fatura do mês." />
-      <div className="summary" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="summary tres">
         <div className="card highlight">
           <div className="label">Fatura de {monthName(month)}</div>
           <div className="value">{fmtBRL(fatura.total)}</div>

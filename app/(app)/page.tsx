@@ -137,12 +137,18 @@ export default function Home() {
         <div className="card">
           <div className="label">Entradas</div>
           <div className="value green">{fmtBRL(tRealizado.entradas)}</div>
-          <div className="sub">previsto: {fmtBRL(tPrevisto.entradas)}</div>
+          <div className="sub">
+            previsto: {fmtBRL(tPrevisto.entradas)}<br />
+            {txs.filter(x => x.type === 'entrada').length} lançamento(s)
+          </div>
         </div>
         <div className="card">
           <div className="label">Saídas</div>
           <div className="value red">{fmtBRL(tRealizado.saidas)}</div>
-          <div className="sub">previsto: {fmtBRL(tPrevisto.saidas)}</div>
+          <div className="sub">
+            previsto: {fmtBRL(tPrevisto.saidas)}<br />
+            {pend.length} conta(s) pendente(s)
+          </div>
         </div>
         <div className="card meta-card">
           <div className="label">Economia do mês</div>
@@ -152,18 +158,20 @@ export default function Home() {
               ? <>{fmtBRL(guardado)} separado + {fmtBRL(economia - guardado)} que sobrou</>
               : 'o que sobrou (nada separado ainda)'}
           </div>
-          <input
-            type="text"
-            defaultValue={meta ? meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}
-            placeholder="meta: ex. 600,00"
-            onBlur={e => setMeta(e.target.value)}
-            aria-label="Meta de economia do mês"
-          />
           <div className="meta-bar"><div className={meta > 0 && !metaOk ? 'fail' : ''} style={{ width: `${meta > 0 ? metaPct : 0}%` }} /></div>
-          <div className="sub">
-            {meta > 0
-              ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - economia))} para a meta`)
-              : 'defina uma meta mensal'}
+          <div className="meta-linha">
+            <input
+              type="text"
+              defaultValue={meta ? meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}
+              placeholder="meta"
+              onBlur={e => setMeta(e.target.value)}
+              aria-label="Meta de economia do mês"
+            />
+            <span className="sub">
+              {meta > 0
+                ? (metaOk ? 'meta atingida ✓' : `faltam ${fmtBRL(Math.max(0, meta - economia))}`)
+                : 'defina uma meta'}
+            </span>
           </div>
         </div>
       </div>

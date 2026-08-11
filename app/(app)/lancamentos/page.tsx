@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PageHead from '@/components/PageHead';
 import ParceladoWizard, { OrigemFixo } from '@/components/ParceladoWizard';
 import TxModal from '@/components/TxModal';
@@ -24,6 +25,8 @@ export default function Lancamentos() {
   const { month } = useMonth();
   const monthRow = useMonthRow(month);
   const txsQ = useTransactions(month);
+  const router = useRouter();
+  const params = useSearchParams();
 
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Transaction | null>(null);
@@ -32,6 +35,15 @@ export default function Lancamentos() {
   const [aba, setAba] = useState<Aba>('todos');
   const [ordem, setOrdem] = useState<Ordem>('data');
   const [desc, setDesc] = useState(false);
+
+  // o "+" da barra inferior chega aqui como ?novo=1 e já abre o modal
+  useEffect(() => {
+    if (params.get('novo') === '1') {
+      setEditando(null);
+      setModalAberto(true);
+      router.replace('/lancamentos');
+    }
+  }, [params, router]);
 
   if (monthRow.isLoading || txsQ.isLoading) return <p className="empty-row">Carregando…</p>;
 
