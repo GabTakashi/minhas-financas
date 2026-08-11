@@ -285,6 +285,33 @@ export async function saveParcelado(input: ParceladoInput, id?: string): Promise
   await sincronizar(uid, alvo!);
 }
 
+/**
+ * Transforma um custo fixo já lançado num parcelado: o lançamento antigo é
+ * substituído pelo que o parcelado gera, preservando o status de pago.
+ */
+export async function converterEmParcelado(txId: string, input: ParceladoInput): Promise<void> {
+  const uid = await userId();
+  const rows = await sql`select month, pago from transactions
+    where id = ${txId} and user_id = ${uid} and type = 'fixo' and parcelado_id is null`;
+  const antiga = rows[0] as { month: string; pago: boolean } | undefined;
+  if (!antiga) throw new Error('Lançamento não encontrado');
+
+  await sql`delete from transactions where id = ${txId} and user_id = ${uid}`;
+
+  const novo = await sql`insert into parcelados
+    (user_id, nome, tipo, categoria, valor_total, parcelas, valor_parcela, parcelas_pagas, primeiro_vencimento, dia_vencimento)
+    values (${uid}, ${input.nome}, ${input.tipo}, ${input.categoria}, ${input.valor_total},
+      ${input.parcelas}, ${input.valor_parcela}, ${input.parcelas_pagas},
+      ${input.primeiro_vencimento}, ${input.dia_vencimento}) returning id`;
+  const parceladoId = novo[0].id as string;
+  await sincronizar(uid, parceladoId);
+
+  if (antiga.pago) {
+    await sql`update transactions set pago = true
+      where user_id = ${uid} and month = ${antiga.month} and parcelado_id = ${parceladoId}`;
+  }
+}
+
 /** Remove o parcelado e os lançamentos ainda não pagos que vieram dele. */
 export async function deleteParcelado(id: string): Promise<void> {
   const uid = await userId();

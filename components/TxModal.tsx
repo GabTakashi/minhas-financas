@@ -17,7 +17,7 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
   editando: Transaction | null;
   aoFechar: () => void;
   /** troca este modal pelo assistente de parcelado, levando o que já foi digitado */
-  aoAbrirParcelado: (tipo: TipoParcelado, nome: string) => void;
+  aoAbrirParcelado: (tipo: TipoParcelado, nome: string, valor: number, categoria: string, dia: number | null) => void;
 }) {
   const { month } = useMonth();
   const qc = useQueryClient();
@@ -133,14 +133,25 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
               </div>
             </div>
 
+            {/* já vem de um parcelado: editar aqui sairia do ar com o cadastro */}
+            {editando?.parcelado_id && (
+              <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
+                🔁 Este lançamento vem de um parcelado. Para mudar valor, parcelas ou prazo,
+                edite-o na aba <strong>Parcelados</strong>.
+              </div>
+            )}
+
             {/* fixo com prazo/parcelas tem cadastro próprio, que já calcula a parcela */}
-            {tipo === 'fixo' && !editando && (
+            {tipo === 'fixo' && !editando?.parcelado_id && (
               <div className="campo">
-                <span>Tem parcelas ou prazo? <span className="card-sub">(opcional)</span></span>
+                <span>
+                  {editando ? 'Transformar em parcelado' : 'Tem parcelas ou prazo?'}{' '}
+                  <span className="card-sub">(opcional)</span>
+                </span>
                 <div className="tipo-cards">
                   {TIPOS.map(t => (
                     <button type="button" key={t.chave} className="tipo-card"
-                      onClick={() => aoAbrirParcelado(t.chave, desc)}>
+                      onClick={() => aoAbrirParcelado(t.chave, desc, valor, cat, dia ? Number(dia) : null)}>
                       <span className="tipo-icone">{t.icone}</span>
                       <strong>{t.nome}</strong>
                       <span className="card-sub">{t.sub}</span>
@@ -148,8 +159,9 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
                   ))}
                 </div>
                 <p className="card-sub" style={{ marginTop: 'var(--s-2)' }}>
-                  Escolhendo um tipo acima, você cadastra o parcelado — o valor da parcela é calculado
-                  sozinho e ele entra aqui como custo fixo todo mês.
+                  {editando
+                    ? 'Escolha um tipo para dar prazo e parcelas a este custo fixo — ele passa a ser controlado na aba Parcelados.'
+                    : 'Escolhendo um tipo acima, você cadastra o parcelado — o valor da parcela é calculado sozinho e ele entra aqui como custo fixo todo mês.'}
                 </p>
               </div>
             )}

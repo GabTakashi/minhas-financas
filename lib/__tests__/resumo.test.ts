@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resumoDoMes, serieDeResumos } from '@/lib/resumo';
+import { guardadoNoMes, resumoDoMes, serieDeResumos } from '@/lib/resumo';
 import { Transaction } from '@/lib/types';
 
 const tx = (p: Partial<Transaction>): Transaction =>
@@ -28,6 +28,23 @@ describe('resumoDoMes', () => {
   it('mês sem lançamentos vira tudo zero', () => {
     const r = resumoDoMes([], [], null, '2026-08');
     expect(r).toMatchObject({ entradas: 0, saidas: 0, poupado: 0, fatura: 0 });
+  });
+});
+
+describe('guardadoNoMes', () => {
+  it('soma só as categorias de poupança', () => {
+    const txs = [
+      tx({ type: 'fixo', valor: 600, categoria: 'Reserva de Emergência' }),
+      tx({ type: 'fixo', valor: 400, categoria: 'Investimentos' }),
+      tx({ type: 'variavel', valor: 100, categoria: 'Alimentação' }),
+    ];
+    expect(guardadoNoMes(txs)).toBe(1000);
+  });
+  it('entrada nunca conta como guardado', () => {
+    expect(guardadoNoMes([tx({ type: 'entrada', valor: 5000, categoria: 'Investimentos' })])).toBe(0);
+  });
+  it('sem categoria de poupança, é zero', () => {
+    expect(guardadoNoMes([tx({ valor: 80, categoria: 'Lanche' })])).toBe(0);
   });
 });
 

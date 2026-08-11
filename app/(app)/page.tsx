@@ -15,7 +15,7 @@ import { iniciarMes as iniciarMesAction, setMeta as setMetaAction } from '@/lib/
 import { faturaDoMes, limiteUtilizado } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
 import { monthName, todayKey } from '@/lib/months';
-import { resumoDoMes, serieDeResumos } from '@/lib/resumo';
+import { CATEGORIAS_POUPANCA, guardadoNoMes, resumoDoMes, serieDeResumos } from '@/lib/resumo';
 import { calcularIpf } from '@/lib/score';
 import { gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
 
@@ -108,16 +108,20 @@ export default function Home() {
 
   // IPF do mês, com os meses anteriores servindo de base para a estabilidade
   const mesesAnteriores = (allMonths.data ?? []).map(m => m.month).filter(k => k < month).slice(-11);
+  const resumo = resumoDoMes(txs, purchases, card, month);
   const ipf = calcularIpf(
-    resumoDoMes(txs, purchases, card, month),
+    resumo,
     serieDeResumos(allTxs.data ?? [], purchases, card, mesesAnteriores),
     meta,
     card ? limiteUtilizado(purchases, card, paidMonths, todayKey()) : 0,
     metaPctQ.data ?? 20,
   );
 
-  const metaPct = meta > 0 ? Math.max(0, Math.min(100, (tPrevisto.saldo / meta) * 100)) : 0;
-  const metaOk = meta > 0 && tPrevisto.saldo >= meta;
+  // economia do mês = o que você separou (Investimentos/Reserva) + o que sobrou
+  const guardado = guardadoNoMes(txs);
+  const economia = resumo.poupado;
+  const metaPct = meta > 0 ? Math.max(0, Math.min(100, (economia / meta) * 100)) : 0;
+  const metaOk = meta > 0 && economia >= meta;
   const totalOrcado = (budgetsQ.data ?? []).reduce((s, b) => s + Number(b.limite), 0);
   const totalGasto = Object.values(gastos).reduce((s, v) => s + v, 0);
 
@@ -141,16 +145,26 @@ export default function Home() {
           <div className="sub">previsto: {fmtBRL(tPrevisto.saidas)}</div>
         </div>
         <div className="card meta-card">
-          <div className="label">Meta de economia</div>
+          <div className="label">Economia do mês</div>
+          <div className="value" style={{ color: metaOk ? 'var(--income)' : undefined }}>{fmtBRL(economia)}</div>
+          <div className="sub" title={`Contam como economia: ${CATEGORIAS_POUPANCA.join(', ')} — e o que sobra no fim do mês.`}>
+            {guardado > 0
+              ? <>{fmtBRL(guardado)} separado + {fmtBRL(economia - guardado)} que sobrou</>
+              : 'o que sobrou (nada separado ainda)'}
+          </div>
           <input
             type="text"
             defaultValue={meta ? meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}
-            placeholder="ex.: 500,00"
+            placeholder="meta: ex. 600,00"
             onBlur={e => setMeta(e.target.value)}
             aria-label="Meta de economia do mês"
           />
           <div className="meta-bar"><div className={meta > 0 && !metaOk ? 'fail' : ''} style={{ width: `${meta > 0 ? metaPct : 0}%` }} /></div>
-          <div className="sub">{meta > 0 ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - tPrevisto.saldo))} faltando`) : 'defina uma meta mensal'}</div>
+          <div className="sub">
+            {meta > 0
+              ? (metaOk ? 'Meta atingida ✓' : `${fmtBRL(Math.max(0, meta - economia))} para a meta`)
+              : 'defina uma meta mensal'}
+          </div>
         </div>
       </div>
 

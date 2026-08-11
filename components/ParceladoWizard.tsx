@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { saveParcelado } from '@/lib/actions';
+import { converterEmParcelado, saveParcelado } from '@/lib/actions';
 import { CATEGORIAS, iconeDe } from '@/lib/categories';
 import { fmtBRL } from '@/lib/money';
 import {
@@ -18,10 +18,20 @@ const hojeISO = () => new Intl.DateTimeFormat('en-CA', {
 const emReais = (d: string) => Number(d || '0') / 100;
 const formata = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, aoFechar }: {
+/** Dados de um custo fixo que está sendo transformado em parcelado. */
+export interface OrigemFixo {
+  txId: string;
+  nome: string;
+  valor: number;
+  categoria: string | null;
+  dia: number | null;
+}
+
+export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, origem, aoFechar }: {
   editando?: Parcelado | null;
   tipoInicial?: TipoParcelado;
   nomeInicial?: string;
+  origem?: OrigemFixo | null;
   aoFechar: () => void;
 }) {
   const qc = useQueryClient();
@@ -29,16 +39,24 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
   const [etapa, setEtapa] = useState(0);
   const [salvando, setSalvando] = useState(false);
 
-  const [nome, setNome] = useState(editando?.nome ?? nomeInicial ?? '');
+  const [nome, setNome] = useState(editando?.nome ?? origem?.nome ?? nomeInicial ?? '');
   const [tipo, setTipo] = useState<TipoParcelado>(editando?.tipo ?? tipoInicial ?? 'parcelamento');
-  const [categoria, setCategoria] = useState(editando?.categoria ?? CATEGORIAS[0]);
+  const [categoria, setCategoria] = useState(editando?.categoria ?? origem?.categoria ?? CATEGORIAS[0]);
   const [digitos, setDigitos] = useState(() => {
-    const base = editando ? (editando.valor_total ?? editando.valor_parcela) : 0;
+    // vindo de um fixo, o valor conhecido é o da mensalidade, não o total
+    const base = editando ? (editando.valor_total ?? editando.valor_parcela) : (origem?.valor ?? 0);
     return base ? String(Math.round(base * 100)) : '';
   });
   const [parcelas, setParcelas] = useState(editando?.parcelas ?? 12);
   const [pagas, setPagas] = useState(editando?.parcelas_pagas ?? 0);
-  const [venc, setVenc] = useState(editando?.primeiro_vencimento ?? hojeISO());
+  const [venc, setVenc] = useState(() => {
+    if (editando) return editando.primeiro_vencimento;
+    if (origem?.dia) {
+      const hoje = hojeISO();
+      return `${hoje.slice(0, 7)}-${String(origem.dia).padStart(2, '0')}`;
+    }
+    return hojeISO();
+  });
 
   const recorrente = semPrazo(tipo);
   const valorDigitado = emReais(digitos);
@@ -65,17 +83,19 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
     : true;
 
   async function salvar() {
+    const dados = {
+      nome: nome.trim(), tipo, categoria,
+      valor_total: recorrente ? null : valorDigitado,
+      parcelas: recorrente ? null : parcelas,
+      valor_parcela: valorParcela,
+      parcelas_pagas: recorrente ? 0 : Math.min(pagas, parcelas),
+      primeiro_vencimento: venc,
+      dia_vencimento: diaVenc,
+    };
     setSalvando(true);
     try {
-      await saveParcelado({
-        nome: nome.trim(), tipo, categoria,
-        valor_total: recorrente ? null : valorDigitado,
-        parcelas: recorrente ? null : parcelas,
-        valor_parcela: valorParcela,
-        parcelas_pagas: recorrente ? 0 : Math.min(pagas, parcelas),
-        primeiro_vencimento: venc,
-        dia_vencimento: diaVenc,
-      }, editando?.id);
+      if (origem) await converterEmParcelado(origem.txId, dados);
+      else await saveParcelado(dados, editando?.id);
     } catch {
       toast('Erro ao salvar — tente novamente');
       setSalvando(false);
@@ -83,7 +103,7 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
     }
     setSalvando(false);
     qc.invalidateQueries();
-    toast(editando ? 'Parcelado atualizado' : 'Parcelado cadastrado');
+    toast(origem ? 'Convertido em parcelado' : editando ? 'Parcelado atualizado' : 'Parcelado cadastrado');
     aoFechar();
   }
 
@@ -91,7 +111,7 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
     <div className="modal-fundo" onClick={aoFechar}>
       <div className="modal modal-wizard" onClick={e => e.stopPropagation()} role="dialog" aria-label="Cadastrar parcelado">
         <div className="section-header" style={{ marginBottom: 'var(--s-3)' }}>
-          <h3>{editando ? 'Editar parcelado' : 'Cadastrar novo parcelado'}</h3>
+          <h3>{origem ? 'Transformar em parcelado' : editando ? 'Editar parcelado' : 'Cadastrar novo parcelado'}</h3>
           <button className="icon-btn" onClick={aoFechar} aria-label="Fechar">✕</button>
         </div>
 
@@ -111,6 +131,12 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
           {/* ── 1. Tipo ── */}
           {etapa === 0 && (
             <>
+              {origem && (
+                <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
+                  🔄 O custo fixo <strong>{origem.nome}</strong> ({fmtBRL(origem.valor)}/mês) vai virar um parcelado.
+                  O lançamento deste mês é substituído pelo novo, mantendo o status de pago.
+                </div>
+              )}
               <label className="campo">
                 <span>Como você quer chamar?</span>
                 <input value={nome} onChange={e => setNome(e.target.value)} autoFocus
@@ -158,6 +184,13 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
                   {recorrente ? 'Quanto você paga por mês' : 'Digite o valor completo'}
                 </span>
               </label>
+
+              {origem && !recorrente && (
+                <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
+                  ⚠️ Você lançava <strong>{fmtBRL(origem.valor)}</strong> por mês. Como parcelamento,
+                  o campo acima é o valor <strong>total</strong> — ajuste se precisar.
+                </div>
+              )}
 
               {!recorrente && (
                 <>
@@ -268,7 +301,7 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, ao
           {etapa < 3
             ? <button className="btn-primary" disabled={!podeAvancar} onClick={() => setEtapa(e => e + 1)}>Continuar →</button>
             : <button className="btn-primary" disabled={salvando} onClick={salvar}>
-                {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Cadastrar parcelado'}
+                {salvando ? 'Salvando…' : origem ? 'Transformar em parcelado' : editando ? 'Salvar alterações' : 'Cadastrar parcelado'}
               </button>}
         </div>
       </div>

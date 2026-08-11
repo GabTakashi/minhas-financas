@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import PageHead from '@/components/PageHead';
-import ParceladoWizard from '@/components/ParceladoWizard';
+import ParceladoWizard, { OrigemFixo } from '@/components/ParceladoWizard';
 import TxModal from '@/components/TxModal';
 import TxSection from '@/components/TxSection';
 import { TipoParcelado } from '@/lib/parcelado';
@@ -27,7 +27,7 @@ export default function Lancamentos() {
 
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Transaction | null>(null);
-  const [wizard, setWizard] = useState<{ tipo: TipoParcelado; nome: string } | null>(null);
+  const [wizard, setWizard] = useState<{ tipo: TipoParcelado; nome: string; origem: OrigemFixo | null } | null>(null);
   const [busca, setBusca] = useState('');
   const [aba, setAba] = useState<Aba>('todos');
   const [ordem, setOrdem] = useState<Ordem>('data');
@@ -129,11 +129,23 @@ export default function Lancamentos() {
         <TxModal
           editando={editando}
           aoFechar={() => setModalAberto(false)}
-          aoAbrirParcelado={(tipo, nome) => { setModalAberto(false); setWizard({ tipo, nome }); }}
+          aoAbrirParcelado={(tipo, nome, valor, categoria, dia) => {
+            // editando um fixo existente: o assistente converte em vez de criar do zero
+            const origem: OrigemFixo | null = editando
+              ? { txId: editando.id, nome: editando.descricao, valor: Number(editando.valor), categoria, dia }
+              : null;
+            setModalAberto(false);
+            setWizard({ tipo, nome: origem ? origem.nome : nome, origem });
+          }}
         />
       )}
       {wizard && (
-        <ParceladoWizard tipoInicial={wizard.tipo} nomeInicial={wizard.nome} aoFechar={() => setWizard(null)} />
+        <ParceladoWizard
+          tipoInicial={wizard.tipo}
+          nomeInicial={wizard.nome}
+          origem={wizard.origem}
+          aoFechar={() => setWizard(null)}
+        />
       )}
     </>
   );
