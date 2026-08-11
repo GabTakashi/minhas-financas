@@ -2,6 +2,7 @@
 import { auth } from '@/auth';
 import { sql } from '@/lib/db';
 import { iniciarMesParaUsuario } from '@/lib/newMonth';
+import { Parcelado, parcelaDoMes, TipoParcelado, valorDaParcela } from '@/lib/parcelado';
 import { Budget, BudgetGroup, Card, CardPurchase, MonthRow, Transaction, TxType } from '@/lib/types';
 
 // Toda a segurança de acesso a dados vive aqui: cada action resolve o usuário
@@ -30,7 +31,7 @@ export async function listMonths(): Promise<MonthRow[]> {
 
 export async function listTransactions(month: string): Promise<Transaction[]> {
   const uid = await userId();
-  return await sql`select id, month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago
+  return await sql`select id, month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago, parcelado_id
     from transactions where user_id = ${uid} and month = ${month} order by created_at` as Transaction[];
 }
 
@@ -196,6 +197,99 @@ export async function saveBudgetGroups(groups: BudgetGroupInput[]): Promise<void
       values (${uid}, ${g.nome.trim()}, ${g.percentual}, ${g.categorias}, ${ordem})`;
     ordem++;
   }
+}
+
+/* ── parcelados ── */
+
+export async function listParcelados(): Promise<Parcelado[]> {
+  const uid = await userId();
+  return await sql`select id, nome, tipo, categoria,
+    valor_total::float as valor_total, parcelas, valor_parcela::float as valor_parcela,
+    parcelas_pagas, primeiro_vencimento::text as primeiro_vencimento, dia_vencimento
+    from parcelados where user_id = ${uid} order by created_at desc` as Parcelado[];
+}
+
+export interface ParceladoInput {
+  nome: string;
+  tipo: TipoParcelado;
+  categoria: string;
+  valor_total: number | null;
+  parcelas: number | null;
+  valor_parcela: number;
+  parcelas_pagas: number;
+  primeiro_vencimento: string;
+  dia_vencimento: number;
+}
+
+/**
+ * Espelha o parcelado como custo fixo nos meses já iniciados: cria/atualiza o
+ * lançamento onde ele vigora e remove onde não vigora mais (preservando os pagos).
+ */
+async function sincronizar(uid: string, parceladoId: string): Promise<void> {
+  const rows = await sql`select nome, tipo, categoria, valor_total::float as valor_total,
+    parcelas, valor_parcela::float as valor_parcela,
+    primeiro_vencimento::text as primeiro_vencimento, dia_vencimento
+    from parcelados where id = ${parceladoId} and user_id = ${uid}`;
+  const p = rows[0] as (ParceladoInput & { parcelas_pagas?: number }) | undefined;
+  if (!p) return;
+
+  const meses = (await sql`select month from months where user_id = ${uid}`).map(r => r.month as string);
+  for (const month of meses) {
+    const indice = parcelaDoMes(p as never, month);
+    const existente = await sql`select id, pago from transactions
+      where user_id = ${uid} and month = ${month} and parcelado_id = ${parceladoId}`;
+
+    if (indice === null) {
+      // saiu de vigência: só apaga o que ainda não foi pago
+      if (existente[0] && !existente[0].pago) {
+        await sql`delete from transactions where id = ${existente[0].id}`;
+      }
+      continue;
+    }
+
+    const valor = p.valor_total != null && p.parcelas
+      ? valorDaParcela(p.valor_total, p.parcelas, indice)
+      : p.valor_parcela;
+    const desc = p.parcelas ? `${p.nome} (${indice}/${p.parcelas})` : p.nome;
+
+    if (existente[0]) {
+      await sql`update transactions set descricao = ${desc}, valor = ${valor},
+        categoria = ${p.categoria}, dia_vencimento = ${p.dia_vencimento}
+        where id = ${existente[0].id}`;
+    } else {
+      await sql`insert into transactions
+        (user_id, month, type, descricao, valor, categoria, dia_vencimento, parcelado_id)
+        values (${uid}, ${month}, 'fixo', ${desc}, ${valor}, ${p.categoria}, ${p.dia_vencimento}, ${parceladoId})`;
+    }
+  }
+}
+
+export async function saveParcelado(input: ParceladoInput, id?: string): Promise<void> {
+  const uid = await userId();
+  let alvo = id;
+  if (id) {
+    await sql`update parcelados set nome = ${input.nome}, tipo = ${input.tipo},
+      categoria = ${input.categoria}, valor_total = ${input.valor_total},
+      parcelas = ${input.parcelas}, valor_parcela = ${input.valor_parcela},
+      parcelas_pagas = ${input.parcelas_pagas},
+      primeiro_vencimento = ${input.primeiro_vencimento}, dia_vencimento = ${input.dia_vencimento}
+      where id = ${id} and user_id = ${uid}`;
+  } else {
+    const novo = await sql`insert into parcelados
+      (user_id, nome, tipo, categoria, valor_total, parcelas, valor_parcela, parcelas_pagas, primeiro_vencimento, dia_vencimento)
+      values (${uid}, ${input.nome}, ${input.tipo}, ${input.categoria}, ${input.valor_total},
+        ${input.parcelas}, ${input.valor_parcela}, ${input.parcelas_pagas},
+        ${input.primeiro_vencimento}, ${input.dia_vencimento}) returning id`;
+    alvo = novo[0].id as string;
+  }
+  await sincronizar(uid, alvo!);
+}
+
+/** Remove o parcelado e os lançamentos ainda não pagos que vieram dele. */
+export async function deleteParcelado(id: string): Promise<void> {
+  const uid = await userId();
+  await sql`delete from transactions where user_id = ${uid} and parcelado_id = ${id} and pago = false`;
+  await sql`delete from parcelados where id = ${id} and user_id = ${uid}`;
 }
 
 /* ── backup / importação ── */

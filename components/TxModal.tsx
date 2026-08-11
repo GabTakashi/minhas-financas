@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { insertTransaction, setTransactionPago, updateTransaction } from '@/lib/actions';
 import { CATEGORIAS, iconeDe } from '@/lib/categories';
+import { TipoParcelado, TIPOS } from '@/lib/parcelado';
 import { Transaction, TxType } from '@/lib/types';
 import { useMonth, useToast } from './Providers';
 
@@ -12,9 +13,11 @@ const ATALHOS = [10, 20, 50, 100, 200];
 const emReais = (digitos: string) => Number(digitos || '0') / 100;
 const formata = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function TxModal({ editando, aoFechar }: {
+export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
   editando: Transaction | null;
   aoFechar: () => void;
+  /** troca este modal pelo assistente de parcelado, levando o que já foi digitado */
+  aoAbrirParcelado: (tipo: TipoParcelado, nome: string) => void;
 }) {
   const { month } = useMonth();
   const qc = useQueryClient();
@@ -129,6 +132,27 @@ export default function TxModal({ editando, aoFechar }: {
                 <button type="button" className={tipo === 'fixo' ? 'on' : ''} onClick={() => setTipo('fixo')}>Fixo</button>
               </div>
             </div>
+
+            {/* fixo com prazo/parcelas tem cadastro próprio, que já calcula a parcela */}
+            {tipo === 'fixo' && !editando && (
+              <div className="campo">
+                <span>Tem parcelas ou prazo? <span className="card-sub">(opcional)</span></span>
+                <div className="tipo-cards">
+                  {TIPOS.map(t => (
+                    <button type="button" key={t.chave} className="tipo-card"
+                      onClick={() => aoAbrirParcelado(t.chave, desc)}>
+                      <span className="tipo-icone">{t.icone}</span>
+                      <strong>{t.nome}</strong>
+                      <span className="card-sub">{t.sub}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="card-sub" style={{ marginTop: 'var(--s-2)' }}>
+                  Escolhendo um tipo acima, você cadastra o parcelado — o valor da parcela é calculado
+                  sozinho e ele entra aqui como custo fixo todo mês.
+                </p>
+              </div>
+            )}
 
             <label className="campo">
               <span>Categoria</span>

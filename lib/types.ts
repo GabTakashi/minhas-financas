@@ -9,6 +9,7 @@ export interface Transaction {
   categoria: string | null; // null para entradas
   dia_vencimento: number | null; // null para entradas
   pago: boolean; // para entradas significa "recebido"
+  parcelado_id?: string | null; // quando o fixo vem de um parcelado cadastrado
 }
 
 export interface MonthRow {

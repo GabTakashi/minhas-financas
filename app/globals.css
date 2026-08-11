@@ -525,6 +525,100 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 .campo-check { display: flex; align-items: center; gap: var(--s-2); font-size: 14px; cursor: pointer; }
 .campo-check input { width: 17px; height: 17px; accent-color: var(--primary); }
 
+/* ── Assistente de parcelado (4 etapas) ── */
+.modal-wizard { max-width: 620px; display: flex; flex-direction: column; max-height: 88vh; }
+.wizard-titulo { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: var(--s-4); }
+.wizard-passos {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-2);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: var(--s-2);
+}
+.wizard-passos span:nth-child(2) { text-align: center; }
+.wizard-passos span:nth-child(3) { text-align: center; }
+.wizard-passos span:last-child { text-align: right; }
+.wizard-passos .atual { color: var(--primary); }
+.wizard-passos .feito { color: var(--income); }
+.wizard-trilho { height: 3px; background: var(--surface-3); border-radius: var(--r-full); overflow: hidden; margin-bottom: var(--s-5); }
+.wizard-trilho div { height: 100%; background: var(--grad-btn); transition: width 0.3s var(--ease); }
+.wizard-corpo { flex: 1; overflow-y: auto; min-height: 0; padding-right: 2px; }
+.wizard-rodape {
+  display: flex; gap: var(--s-3); margin-top: var(--s-5); padding-top: var(--s-4);
+  border-top: 1px solid var(--border-soft);
+}
+.wizard-rodape .btn-primary { flex: 1; }
+
+.tipo-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+.tipo-card {
+  text-align: left; padding: var(--s-3); border-radius: var(--r-md); cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border-medium); color: var(--text-2);
+  font-family: inherit; transition: all 0.18s var(--ease);
+}
+.tipo-card:hover { border-color: var(--border-focus); }
+.tipo-card.on { background: var(--primary-soft); border-color: var(--primary); }
+.tipo-card.on strong { color: var(--primary); }
+.tipo-icone {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: var(--r-xs); font-size: 16px;
+  background: var(--surface-3); margin-bottom: var(--s-2);
+}
+.tipo-card strong { display: block; font-size: 13.5px; color: var(--text-1); }
+.tipo-card .card-sub { display: block; margin-top: 2px; }
+
+.wizard-duplo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); }
+.passo-caixa { background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--r-md); padding: var(--s-3); }
+.passo-caixa .card-label { margin-bottom: var(--s-2); }
+.contador { display: flex; align-items: center; gap: var(--s-3); }
+.contador button {
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--r-xs); cursor: pointer;
+  background: var(--surface-3); border: 1px solid var(--border-medium); color: var(--text-1);
+  font-size: 17px; line-height: 1; font-family: inherit;
+}
+.contador button:hover { border-color: var(--border-focus); color: var(--primary); }
+.contador strong { font-family: var(--font-mono); font-size: 20px; min-width: 42px; text-align: center; }
+.valor-auto { font-family: var(--font-mono); font-size: 20px; color: var(--primary); }
+.marca-auto {
+  font-size: 9px; padding: 2px 6px; border-radius: var(--r-full); margin-left: var(--s-2);
+  background: var(--primary-soft); color: var(--primary); letter-spacing: .06em;
+}
+
+.aviso-caixa {
+  background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--r-sm);
+  padding: var(--s-3); font-size: 13px; color: var(--text-2);
+}
+.calendario-parcelas { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+.parcela-cartao {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 74px; padding: var(--s-2) var(--s-3); border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+.parcela-cartao strong { font-family: var(--font-mono); font-size: 19px; }
+.parcela-cartao.primeira { border-color: var(--primary); background: var(--primary-soft); }
+.parcela-cartao.mais { justify-content: center; min-width: 56px; }
+
+.impacto {
+  position: relative; overflow: hidden; text-align: center; padding: var(--s-5);
+  border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--border-medium);
+  margin-bottom: var(--s-4);
+}
+.impacto::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 130px; background: var(--grad-halo); }
+.impacto > * { position: relative; }
+.impacto strong { display: block; font-family: var(--font-mono); font-size: 34px; font-weight: 600; letter-spacing: -0.03em; margin: var(--s-2) 0; }
+
+.revisao { border: 1px solid var(--border-soft); border-radius: var(--r-md); overflow: hidden; }
+.revisao-linha {
+  display: flex; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border-soft); font-size: 13.5px;
+}
+.revisao-linha:last-child { border-bottom: none; }
+.revisao-linha span { color: var(--text-2); }
+.revisao-linha strong { font-weight: 500; text-align: right; }
+
+@media (max-width: 640px) {
+  .tipo-cards, .wizard-duplo { grid-template-columns: minmax(0, 1fr); }
+  .wizard-titulo { font-size: 18px; }
+  .modal-wizard { max-height: 92vh; }
+}
+
 @media (max-width: 900px) {
   .painel-duplo, .pilar-grid { grid-template-columns: minmax(0, 1fr); }
   .faixa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

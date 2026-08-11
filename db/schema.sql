@@ -27,6 +27,8 @@ create table transactions (
   categoria text,
   dia_vencimento int check (dia_vencimento between 1 and 31),
   pago boolean not null default false,
+  -- quando vem de um parcelado, aponta para ele (a tabela é criada mais abaixo)
+  parcelado_id uuid,
   created_at timestamptz not null default now()
 );
 
@@ -80,6 +82,26 @@ create table budget_groups (
   ordem int not null default 0,
   unique (user_id, nome)
 );
+
+-- compromissos que se repetem: parcelamento, cartão, recorrente, financiamento.
+-- cada mês vigente gera um lançamento fixo em transactions (ligado por parcelado_id)
+create table parcelados (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  nome text not null,
+  tipo text not null check (tipo in ('parcelamento', 'cartao', 'recorrente', 'financiamento')),
+  categoria text not null,
+  valor_total numeric,                       -- null em recorrente (sem prazo)
+  parcelas int check (parcelas is null or parcelas >= 1),
+  valor_parcela numeric not null check (valor_parcela > 0),
+  parcelas_pagas int not null default 0,
+  primeiro_vencimento date not null,
+  dia_vencimento int not null check (dia_vencimento between 1 and 31),
+  created_at timestamptz not null default now()
+);
+create index idx_parcelados_user on parcelados (user_id);
+alter table transactions add constraint fk_transactions_parcelado
+  foreign key (parcelado_id) references parcelados(id) on delete set null;
 
 -- gastos enviados pelo Telegram aguardando escolha de categoria (botões)
 create table telegram_pending (

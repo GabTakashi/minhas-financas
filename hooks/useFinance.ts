@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getCard, getMetaPct, getMonthRow, listAllTransactions, listBudgetGroups, listBudgets,
-  listDiasRegistrados, listInvoicePayments, listMonths, listPurchases, listTransactions,
+  listDiasRegistrados, listInvoicePayments, listMonths, listParcelados, listPurchases, listTransactions,
 } from '@/lib/actions';
 
 export const useMonthRow = (month: string) =>
@@ -37,3 +37,6 @@ export const useDiasRegistrados = () =>
 
 export const useMetaPct = () =>
   useQuery({ queryKey: ['meta-pct'], queryFn: () => getMetaPct() });
+
+export const useParcelados = () =>
+  useQuery({ queryKey: ['parcelados'], queryFn: () => listParcelados() });
