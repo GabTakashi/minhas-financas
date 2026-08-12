@@ -6,14 +6,15 @@ import { useMonth, useToast } from '@/components/Providers';
 import PageHead from '@/components/PageHead';
 import EvolutionChart from '@/components/EvolutionChart';
 import Constancia from '@/components/Constancia';
+import FaixaReceita from '@/components/FaixaReceita';
 import ScorePainel from '@/components/ScorePainel';
 import {
   useAllMonths, useAllTransactions, useBudgets, useCard, useDiasRegistrados,
   useMetaPct, useMonthRow, usePaidInvoices, usePurchases, useTransactions,
 } from '@/hooks/useFinance';
-import { iniciarMes as iniciarMesAction, setMeta as setMetaAction } from '@/lib/actions';
+import { iniciarMes as iniciarMesAction } from '@/lib/actions';
 import { faturaDoMes, limiteUtilizado } from '@/lib/invoice';
-import { fmtBRL, parseValorBR } from '@/lib/money';
+import { fmtBRL } from '@/lib/money';
 import { monthName, todayKey } from '@/lib/months';
 import { CATEGORIAS_POUPANCA, guardadoNoMes, resumoDoMes, serieDeResumos } from '@/lib/resumo';
 import { calcularIpf } from '@/lib/score';
@@ -76,12 +77,6 @@ export default function Home() {
     );
   }
 
-  async function setMeta(value: string) {
-    const v = parseValorBR(value);
-    await setMetaAction(month, isNaN(v) || v < 0 ? 0 : v);
-    qc.invalidateQueries();
-  }
-
   // pendentes: lançamentos não pagos + fatura não paga
   const pend: { desc: string; tipo: string; dia: number | null; valor: number }[] = [
     ...txs.filter(x => x.type !== 'entrada' && !x.pago)
@@ -128,6 +123,9 @@ export default function Home() {
   return (
     <>
       <PageHead title={`${greeting()}!`} sub="Acompanhe a evolução das suas finanças." />
+
+      <FaixaReceita receita={tPrevisto.entradas} despesas={tPrevisto.saidas} guardado={guardado} />
+
       <div className="summary">
         <div className="card highlight">
           <div className="label">Saldo do mês</div>
@@ -150,7 +148,7 @@ export default function Home() {
             {pend.length} conta(s) pendente(s)
           </div>
         </div>
-        <div className="card meta-card">
+        <Link href="/metas" className="card meta-card">
           <div className="label">Economia do mês</div>
           <div className="value" style={{ color: metaOk ? 'var(--income)' : undefined }}>{fmtBRL(economia)}</div>
           <div className="sub" title={`Contam como economia: ${CATEGORIAS_POUPANCA.join(', ')} — e o que sobra no fim do mês.`}>
@@ -159,21 +157,12 @@ export default function Home() {
               : 'o que sobrou (nada separado ainda)'}
           </div>
           <div className="meta-bar"><div className={meta > 0 && !metaOk ? 'fail' : ''} style={{ width: `${meta > 0 ? metaPct : 0}%` }} /></div>
-          <div className="meta-linha">
-            <input
-              type="text"
-              defaultValue={meta ? meta.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}
-              placeholder="meta"
-              onBlur={e => setMeta(e.target.value)}
-              aria-label="Meta de economia do mês"
-            />
-            <span className="sub">
-              {meta > 0
-                ? (metaOk ? 'meta atingida ✓' : `faltam ${fmtBRL(Math.max(0, meta - economia))}`)
-                : 'defina uma meta'}
-            </span>
+          <div className="sub">
+            {meta > 0
+              ? (metaOk ? 'meta atingida ✓' : `faltam ${fmtBRL(Math.max(0, meta - economia))}`)
+              : 'definir meta →'}
           </div>
-        </div>
+        </Link>
       </div>
 
       <div className="painel-duplo">
