@@ -1,23 +1,38 @@
 /**
  * IPF — Índice de Performance Financeira.
- * Indicador interno do app (0–100) formado por 4 pilares de 25 pontos.
- * Não tem relação com score de crédito de bancos.
+ *
+ * Nota de 0 a 100 tirada da regra 50/30/20: cada grupo de orçamento vale, em
+ * pontos, o próprio percentual da renda. Grupos de gasto são **teto** (gastar
+ * até o alvo dá a nota cheia; a partir daí a nota cai proporcionalmente, e
+ * zera ao gastar o dobro do alvo). O grupo de poupança é **meta** (alocar o
+ * alvo ou mais dá a nota cheia; alocar menos pontua proporcionalmente).
+ *
+ * Indicador interno deste app — não tem relação com score de crédito de bancos.
  */
+import { CATEGORIAS_POUPANCA } from './categories';
 
-export interface ResumoMes {
-  month: string;
-  entradas: number;
-  saidas: number;
-  /** quanto sobrou + o que foi para investimento/reserva */
-  poupado: number;
-  /** fatura do cartão do mês (peso de endividamento) */
-  fatura: number;
+export interface GrupoOrcamento {
+  nome: string;
+  percentual: number;
+  categorias: string[];
 }
 
+/** teto = gastar até o alvo; meta = alocar o alvo ou mais. */
+export type TipoPilar = 'teto' | 'meta';
+
 export interface Pilar {
-  chave: 'poupanca' | 'aderencia' | 'estabilidade' | 'endividamento';
+  chave: string;
   nome: string;
+  tipo: TipoPilar;
+  /** quanto o pilar vale na nota (é o percentual do grupo) */
+  peso: number;
   pontos: number;
+  /** valor em R$ que a regra reserva ao grupo */
+  alvo: number;
+  /** valor em R$ efetivamente gasto/alocado */
+  gasto: number;
+  /** fatia da renda que o grupo consumiu, 0–1 */
+  fatia: number;
   descricao: string;
   dica: string;
 }
@@ -27,10 +42,11 @@ export interface Ipf {
   faixa: string;
   pilares: Pilar[];
   alertas: { titulo: string; texto: string }[];
+  /** false quando ainda falta configurar grupos ou registrar receita */
+  pronto: boolean;
 }
 
 const limita = (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v));
-const pontos = (fracao: number) => Math.round(limita(fracao) * 25);
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export const FAIXAS = [
@@ -45,102 +61,97 @@ export function faixaDoScore(total: number): string {
   return FAIXAS.find(f => total >= f.de && total <= f.ate)?.nome ?? 'Crítico';
 }
 
-/** Coeficiente de variação (desvio padrão ÷ média). Quanto menor, mais estável. */
-export function coefVariacao(valores: number[]): number {
-  const uteis = valores.filter(v => v > 0);
-  if (uteis.length < 2) return 0;
-  const media = uteis.reduce((s, v) => s + v, 0) / uteis.length;
-  if (media === 0) return 0;
-  const variancia = uteis.reduce((s, v) => s + (v - media) ** 2, 0) / uteis.length;
-  return Math.sqrt(variancia) / media;
+/** O grupo guarda dinheiro (Investimentos, Reserva) em vez de consumir? */
+export function ehGrupoDePoupanca(g: GrupoOrcamento): boolean {
+  return g.categorias.length > 0 && g.categorias.every(c => CATEGORIAS_POUPANCA.includes(c));
 }
 
 /**
- * @param mes        resumo do mês avaliado
- * @param historico  meses anteriores (mais recentes por último), para estabilidade
- * @param meta       meta de economia do mês em R$ (0 = não definida)
- * @param parcelasFuturas total ainda a pagar em parcelas de cartão
- * @param metaPct    % da renda que o usuário quer poupar (nota cheia do pilar Poupança)
+ * Fração da nota do pilar, 0–1.
+ * - meta: proporcional ao quanto do alvo foi alocado.
+ * - teto: cheia até o alvo, caindo depois na mesma proporção do excesso.
+ */
+export function fracaoDoPilar(tipo: TipoPilar, gasto: number, alvo: number): number {
+  if (alvo <= 0) return tipo === 'meta' ? 0 : 1;
+  return limita(tipo === 'meta' ? gasto / alvo : 2 - gasto / alvo);
+}
+
+function inacabado(titulo: string, texto: string): Ipf {
+  return { total: 0, faixa: faixaDoScore(0), pilares: [], alertas: [{ titulo, texto }], pronto: false };
+}
+
+/**
+ * @param entradas receita do mês em R$
+ * @param grupos   grupos de orçamento do usuário (nome, % da renda, categorias)
+ * @param gastos   quanto foi gasto em cada categoria no mês
  */
 export function calcularIpf(
-  mes: ResumoMes,
-  historico: ResumoMes[],
-  meta: number,
-  parcelasFuturas = 0,
-  metaPct = 20,
+  entradas: number,
+  grupos: GrupoOrcamento[],
+  gastos: Record<string, number>,
 ): Ipf {
-  const alvoPoupanca = Math.max(1, metaPct) / 100;
-  const pilares: Pilar[] = [];
+  if (grupos.length === 0) {
+    return inacabado(
+      'Sem grupos de orçamento',
+      'Crie seus grupos na aba Orçamento — a nota vem da regra 50/30/20 que você definir lá.',
+    );
+  }
+  if (entradas <= 0) {
+    return inacabado(
+      'Sem receita no mês',
+      'Registre suas entradas do mês para a nota poder comparar seus gastos com a renda.',
+    );
+  }
+
   const alertas: { titulo: string; texto: string }[] = [];
 
-  // 1. Poupança — poupar a % definida nas configurações vale a nota cheia
-  const taxa = mes.entradas > 0 ? mes.poupado / mes.entradas : 0;
-  const pPoupanca = pontos(taxa / alvoPoupanca);
-  pilares.push({
-    chave: 'poupanca',
-    nome: 'Poupança',
-    pontos: pPoupanca,
-    descricao: 'Quanto da sua renda está sendo poupada ou investida.',
-    dica: mes.entradas === 0
-      ? 'Registre suas entradas do mês para calcular este pilar.'
-      : taxa <= 0
-        ? 'Você não poupou neste mês — as saídas consumiram toda a renda.'
-        : `Você poupou ${pct(taxa)} da sua renda. A nota cheia vem a partir de ${Math.round(alvoPoupanca * 100)}%.`,
-  });
-  if (mes.entradas > 0 && taxa <= 0) {
-    alertas.push({ titulo: 'Falta de poupança', texto: 'Nenhum valor sobrou neste mês, o que fragiliza sua saúde financeira.' });
-  }
+  const pilares: Pilar[] = grupos.map(g => {
+    const peso = Math.max(0, g.percentual);
+    const alvo = (peso / 100) * entradas;
+    const gasto = g.categorias.reduce((s, c) => s + (gastos[c] || 0), 0);
+    const fatia = gasto / entradas;
+    const tipo: TipoPilar = ehGrupoDePoupanca(g) ? 'meta' : 'teto';
+    const pontos = Math.round(fracaoDoPilar(tipo, gasto, alvo) * peso);
 
-  // 2. Aderência à meta
-  const pAderencia = meta > 0 ? pontos(mes.poupado / meta) : 0;
-  pilares.push({
-    chave: 'aderencia',
-    nome: 'Aderência à meta',
-    pontos: pAderencia,
-    descricao: 'O quanto sua poupança do mês se aproxima da meta definida.',
-    dica: meta <= 0
-      ? 'Defina sua meta de economia na Visão geral para ativar este pilar.'
-      : mes.poupado >= meta
-        ? 'Meta batida neste mês ✓'
-        : `Faltaram ${pct(1 - limita(mes.poupado / meta))} da meta para a nota cheia.`,
-  });
-  if (meta <= 0) {
-    alertas.push({ titulo: 'Sem meta definida', texto: 'Sem uma meta de economia, não dá para medir sua aderência.' });
-  }
+    if (tipo === 'teto' && gasto > alvo && alvo > 0) {
+      alertas.push({
+        titulo: `${g.nome} acima do previsto`,
+        texto: `A regra reserva ${peso}% da renda para ${g.nome.toLowerCase()}, mas você já usou ${pct(fatia)}.`,
+      });
+    }
+    if (tipo === 'meta' && gasto < alvo) {
+      alertas.push({
+        titulo: `${g.nome} abaixo da regra`,
+        texto: `Você guardou ${pct(fatia)} da renda; a regra pede ${peso}%.`,
+      });
+    }
 
-  // 3. Estabilidade de gastos — CV até 10% é ótimo; a partir de 60% é instável
-  const serie = [...historico, mes].map(m => m.saidas);
-  const cv = coefVariacao(serie);
-  const poucoHistorico = serie.filter(v => v > 0).length < 2;
-  const pEstabilidade = poucoHistorico ? 25 : pontos((0.6 - cv) / 0.5);
-  pilares.push({
-    chave: 'estabilidade',
-    nome: 'Estabilidade de gastos',
-    pontos: pEstabilidade,
-    descricao: 'A consistência dos seus gastos ao longo dos meses.',
-    dica: poucoHistorico
-      ? 'Ainda há poucos meses registrados para medir variação.'
-      : `Seus gastos variam ${pct(cv)} entre os meses.`,
+    return {
+      chave: g.nome,
+      nome: g.nome,
+      tipo,
+      peso,
+      pontos,
+      alvo,
+      gasto,
+      fatia,
+      descricao: tipo === 'meta'
+        ? `Guardar pelo menos ${peso}% da renda em ${g.nome.toLowerCase()}.`
+        : `Os gastos de ${g.nome.toLowerCase()} devem caber em ${peso}% da renda.`,
+      dica: tipo === 'meta'
+        ? gasto >= alvo
+          ? `Você guardou ${pct(fatia)} da renda — a regra pede ${peso}%. Nota cheia ✓`
+          : `Você guardou ${pct(fatia)} da renda. A nota cheia vem a partir de ${peso}%.`
+        : gasto <= alvo
+          ? `Você usou ${pct(fatia)} da renda, dentro dos ${peso}% da regra.`
+          : `Você usou ${pct(fatia)} da renda, acima dos ${peso}% da regra. A nota zera ao dobrar o alvo.`,
+    };
   });
 
-  // 4. Endividamento — fatura + parcelas a vencer sobre a renda
-  const comprometido = mes.entradas > 0 ? (mes.fatura + parcelasFuturas) / mes.entradas : 0;
-  const pEndividamento = mes.entradas > 0 ? pontos((0.4 - comprometido) / 0.4) : 25;
-  pilares.push({
-    chave: 'endividamento',
-    nome: 'Endividamento',
-    pontos: pEndividamento,
-    descricao: 'O impacto do cartão e das parcelas sobre a sua renda.',
-    dica: mes.entradas === 0
-      ? 'Sem entradas registradas não dá para medir o comprometimento.'
-      : comprometido === 0
-        ? 'Sem dívidas de cartão — comprometimento de renda em 0%.'
-        : `${pct(comprometido)} da sua renda está comprometida com cartão e parcelas.`,
-  });
-  if (comprometido > 0.4) {
-    alertas.push({ titulo: 'Endividamento alto', texto: `Cartão e parcelas consomem ${pct(comprometido)} da sua renda.` });
-  }
+  // normaliza para 0–100: o usuário pode configurar percentuais que não somam 100
+  const somaPesos = pilares.reduce((s, p) => s + p.peso, 0);
+  const somaPontos = pilares.reduce((s, p) => s + p.pontos, 0);
+  const total = somaPesos > 0 ? Math.round(limita(somaPontos / somaPesos) * 100) : 0;
 
-  const total = pilares.reduce((s, p) => s + p.pontos, 0);
-  return { total, faixa: faixaDoScore(total), pilares, alertas };
+  return { total, faixa: faixaDoScore(total), pilares, alertas, pronto: true };
 }

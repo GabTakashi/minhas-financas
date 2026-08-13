@@ -3,50 +3,45 @@ import PageHead from '@/components/PageHead';
 import ScorePainel, { corDaFaixa } from '@/components/ScorePainel';
 import { useMonth } from '@/components/Providers';
 import {
-  useAllMonths, useAllTransactions, useCard, useMetaPct, useMonthRow, usePaidInvoices, usePurchases,
+  useAllMonths, useAllTransactions, useBudgetGroups, useCard, usePurchases,
 } from '@/hooks/useFinance';
-import { limiteUtilizado } from '@/lib/invoice';
-import { todayKey } from '@/lib/months';
+import { faturaDoMes } from '@/lib/invoice';
+import { fmtBRL } from '@/lib/money';
 import { shortMonth } from '@/lib/months';
-import { resumoDoMes, serieDeResumos } from '@/lib/resumo';
 import { calcularIpf, FAIXAS, faixaDoScore } from '@/lib/score';
+import { gastosPorCategoria, monthTotals } from '@/lib/totals';
 
 export default function Desempenho() {
   const { month } = useMonth();
-  const monthRow = useMonthRow(month);
   const allMonths = useAllMonths();
   const allTxs = useAllTransactions();
   const cardQ = useCard();
   const purchasesQ = usePurchases();
-  const paidQ = usePaidInvoices();
-  const metaPctQ = useMetaPct();
+  const groupsQ = useBudgetGroups();
 
-  const queries = [monthRow, allMonths, allTxs, cardQ, purchasesQ, paidQ, metaPctQ];
+  const queries = [allMonths, allTxs, cardQ, purchasesQ, groupsQ];
   if (queries.some(q => q.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(q => q.isError)) return <p className="empty-row">Erro ao carregar dados — recarregue a página.</p>;
 
   const card = cardQ.data ?? null;
   const purchases = purchasesQ.data ?? [];
   const txs = allTxs.data ?? [];
-  const pagos = (paidQ.data ?? []).filter(p => p.pago).map(p => p.month);
+  const grupos = groupsQ.data ?? [];
 
-  const doMes = txs.filter(t => t.month === month);
-  const resumo = resumoDoMes(doMes, purchases, card, month);
+  /** Nota de um mês qualquer: receita e gastos por categoria daquele mês. */
+  function ipfDoMes(k: string) {
+    const doMes = txs.filter(t => t.month === k);
+    const fatura = card ? faturaDoMes(purchases, card, k) : { items: [], total: 0 };
+    const entradas = monthTotals(doMes, fatura.total).entradas;
+    return calcularIpf(entradas, grupos, gastosPorCategoria(doMes, fatura.items));
+  }
+
+  const ipf = ipfDoMes(month);
   const anteriores = (allMonths.data ?? []).map(m => m.month).filter(k => k < month).slice(-11);
-  const historico = serieDeResumos(txs, purchases, card, anteriores);
-  const meta = Number(monthRow.data?.meta ?? 0);
-  const parcelasFuturas = card ? limiteUtilizado(purchases, card, pagos, todayKey()) : 0;
-
-  const metaPct = metaPctQ.data ?? 20;
-  const ipf = calcularIpf(resumo, historico, meta, parcelasFuturas, metaPct);
 
   // evolução: até 6 meses, incluindo o atual
   const chaves = [...anteriores.slice(-5), month];
-  const evolucao = chaves.map(k => {
-    const r = k === month ? resumo : historico.find(h => h.month === k)!;
-    const antes = serieDeResumos(txs, purchases, card, anteriores.filter(a => a < k));
-    return { key: k, total: calcularIpf(r, antes, meta, parcelasFuturas, metaPct).total };
-  });
+  const evolucao = chaves.map(k => ({ key: k, total: ipfDoMes(k).total }));
 
   const W = 640, H = 190, padL = 34, padR = 12, padT = 14, padB = 26;
   const innerW = W - padL - padR, innerH = H - padT - padB;
@@ -57,33 +52,41 @@ export default function Desempenho() {
 
   return (
     <>
-      <PageHead title="Desempenho" sub="Os 4 pilares do seu Índice de Performance Financeira." />
+      <PageHead title="Desempenho" sub="A regra 50/30/20 aplicada ao seu mês." />
 
       <p className="card-sub" style={{ maxWidth: '70ch', marginBottom: 'var(--s-4)' }}>
-        O IPF é um indicador interno deste app para medir a eficiência da sua organização financeira.
-        Ele não tem nenhuma relação com score de crédito usado por bancos.
+        O IPF é um indicador interno deste app: cada grupo do seu orçamento vale, em pontos, o
+        percentual da renda que você reservou para ele. Ele não tem nenhuma relação com score de
+        crédito usado por bancos.
       </p>
 
       <div style={{ marginBottom: 'var(--s-5)' }}>
         <ScorePainel ipf={ipf} />
       </div>
 
-      <div className="section-header"><h2>Pilares</h2></div>
-      <div className="pilar-grid">
-        {ipf.pilares.map(p => (
-          <div className="card" key={p.chave}>
-            <div className="section-header" style={{ marginBottom: 'var(--s-2)' }}>
-              <h3 style={{ fontSize: 15 }}>{p.nome}</h3>
-              <span className="total" style={{ color: corDaFaixa(ipf.total) }}>{p.pontos}/25</span>
-            </div>
-            <p className="card-sub" style={{ marginBottom: 'var(--s-3)' }}>{p.descricao}</p>
-            <div className="pilar-trilho" style={{ marginBottom: 'var(--s-3)' }}>
-              <div style={{ width: `${(p.pontos / 25) * 100}%`, background: corDaFaixa(ipf.total) }} />
-            </div>
-            <div className="pilar-dica">💡 {p.dica}</div>
+      {ipf.pronto && (
+        <>
+          <div className="section-header"><h2>Pilares</h2></div>
+          <div className="pilar-grid">
+            {ipf.pilares.map(p => (
+              <div className="card" key={p.chave}>
+                <div className="section-header" style={{ marginBottom: 'var(--s-2)' }}>
+                  <h3 style={{ fontSize: 15 }}>{p.nome}</h3>
+                  <span className="total" style={{ color: corDaFaixa(ipf.total) }}>{p.pontos}/{p.peso}</span>
+                </div>
+                <p className="card-sub" style={{ marginBottom: 'var(--s-3)' }}>{p.descricao}</p>
+                <div className="pilar-trilho" style={{ marginBottom: 'var(--s-2)' }}>
+                  <div style={{ width: `${p.peso > 0 ? (p.pontos / p.peso) * 100 : 0}%`, background: corDaFaixa(ipf.total) }} />
+                </div>
+                <p className="card-sub" style={{ marginBottom: 'var(--s-3)', fontFamily: 'var(--font-mono)' }}>
+                  {fmtBRL(p.gasto)} de {fmtBRL(p.alvo)}
+                </p>
+                <div className="pilar-dica">💡 {p.dica}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       <div className="card" style={{ marginTop: 'var(--s-5)' }}>
         <h3>Evolução do IPF</h3>

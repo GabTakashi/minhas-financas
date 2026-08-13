@@ -1,20 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { calcularIpf, coefVariacao, faixaDoScore, ResumoMes } from '@/lib/score';
+import { calcularIpf, ehGrupoDePoupanca, faixaDoScore, fracaoDoPilar, GrupoOrcamento } from '@/lib/score';
 
-const mes = (p: Partial<ResumoMes> = {}): ResumoMes =>
-  ({ month: '2026-08', entradas: 5000, saidas: 4000, poupado: 1000, fatura: 0, ...p });
+const ESSENCIAIS: GrupoOrcamento = { nome: 'Essenciais', percentual: 50, categorias: ['Moradia', 'Alimentação', 'Saúde'] };
+const LAZER: GrupoOrcamento = { nome: 'Não essenciais', percentual: 30, categorias: ['Lazer', 'Lanche'] };
+const INVEST: GrupoOrcamento = { nome: 'Investimentos', percentual: 20, categorias: ['Investimentos', 'Reserva de Emergência'] };
+const TRES = [ESSENCIAIS, LAZER, INVEST];
 
-describe('coefVariacao', () => {
-  it('é zero quando os valores são iguais', () => {
-    expect(coefVariacao([1000, 1000, 1000])).toBe(0);
-  });
-  it('cresce conforme a dispersão', () => {
-    expect(coefVariacao([500, 1500])).toBeGreaterThan(0.4);
-  });
-  it('ignora série curta demais', () => {
-    expect(coefVariacao([1000])).toBe(0);
-  });
-});
+const ponto = (r: ReturnType<typeof calcularIpf>, nome: string) =>
+  r.pilares.find(p => p.nome === nome)!.pontos;
 
 describe('faixaDoScore', () => {
   it('classifica cada faixa', () => {
@@ -27,67 +20,117 @@ describe('faixaDoScore', () => {
   });
 });
 
-describe('calcularIpf', () => {
-  it('dá nota cheia em poupança a partir de 20% da renda', () => {
-    const r = calcularIpf(mes({ poupado: 1000, entradas: 5000 }), [], 1000);
-    expect(r.pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(25);
+describe('ehGrupoDePoupanca', () => {
+  it('reconhece o grupo formado só por categorias de poupança', () => {
+    expect(ehGrupoDePoupanca(INVEST)).toBe(true);
   });
-
-  it('pontua poupança proporcionalmente abaixo de 20%', () => {
-    const r = calcularIpf(mes({ poupado: 500, entradas: 5000 }), [], 0); // 10% → metade
-    expect(r.pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(13);
+  it('grupo de consumo não é de poupança', () => {
+    expect(ehGrupoDePoupanca(ESSENCIAIS)).toBe(false);
+    expect(ehGrupoDePoupanca({ nome: 'Misto', percentual: 20, categorias: ['Investimentos', 'Lazer'] })).toBe(false);
   });
-
-  it('zera aderência quando não há meta e avisa', () => {
-    const r = calcularIpf(mes(), [], 0);
-    expect(r.pilares.find(p => p.chave === 'aderencia')!.pontos).toBe(0);
-    expect(r.alertas.some(a => a.titulo === 'Sem meta definida')).toBe(true);
+  it('grupo sem categoria nenhuma não é de poupança', () => {
+    expect(ehGrupoDePoupanca({ nome: 'Vazio', percentual: 10, categorias: [] })).toBe(false);
   });
+});
 
-  it('dá nota cheia de aderência quando bate a meta', () => {
-    const r = calcularIpf(mes({ poupado: 800 }), [], 800);
-    expect(r.pilares.find(p => p.chave === 'aderencia')!.pontos).toBe(25);
+describe('fracaoDoPilar', () => {
+  it('teto: nota cheia até o alvo', () => {
+    expect(fracaoDoPilar('teto', 400, 1000)).toBe(1);
+    expect(fracaoDoPilar('teto', 1000, 1000)).toBe(1);
   });
-
-  it('penaliza endividamento acima de 40% da renda', () => {
-    const r = calcularIpf(mes({ entradas: 1000, fatura: 500 }), [], 0);
-    expect(r.pilares.find(p => p.chave === 'endividamento')!.pontos).toBe(0);
-    expect(r.alertas.some(a => a.titulo === 'Endividamento alto')).toBe(true);
+  it('teto: cai proporcionalmente ao excesso e zera no dobro', () => {
+    expect(fracaoDoPilar('teto', 1500, 1000)).toBe(0.5);
+    expect(fracaoDoPilar('teto', 2000, 1000)).toBe(0);
+    expect(fracaoDoPilar('teto', 3000, 1000)).toBe(0);
   });
-
-  it('sem dívida, endividamento é nota cheia', () => {
-    const r = calcularIpf(mes({ fatura: 0 }), [], 0);
-    expect(r.pilares.find(p => p.chave === 'endividamento')!.pontos).toBe(25);
+  it('meta: proporcional ao que foi alocado, sem passar de cheia', () => {
+    expect(fracaoDoPilar('meta', 500, 1000)).toBe(0.5);
+    expect(fracaoDoPilar('meta', 1000, 1000)).toBe(1);
+    expect(fracaoDoPilar('meta', 4000, 1000)).toBe(1);
   });
+});
 
-  it('com poucos meses, estabilidade não pune o usuário', () => {
-    const r = calcularIpf(mes(), [], 0);
-    expect(r.pilares.find(p => p.chave === 'estabilidade')!.pontos).toBe(25);
-  });
-
-  it('gastos muito irregulares derrubam a estabilidade', () => {
-    const hist = [mes({ saidas: 500 }), mes({ saidas: 6000 }), mes({ saidas: 800 })];
-    const r = calcularIpf(mes({ saidas: 7000 }), hist, 0);
-    expect(r.pilares.find(p => p.chave === 'estabilidade')!.pontos).toBeLessThan(13);
-  });
-
-  it('soma os 4 pilares e classifica', () => {
-    const r = calcularIpf(mes({ poupado: 1000, entradas: 5000, fatura: 0 }), [], 1000);
+describe('calcularIpf — regra 50/30/20', () => {
+  it('dá 100 quando o mês segue a regra à risca', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 1000 });
+    expect(ponto(r, 'Essenciais')).toBe(50);
+    expect(ponto(r, 'Não essenciais')).toBe(30);
+    expect(ponto(r, 'Investimentos')).toBe(20);
     expect(r.total).toBe(100);
     expect(r.faixa).toBe('Excelente');
-    expect(r.pilares).toHaveLength(4);
   });
 
-  it('a meta de poupança configurada muda o alvo do pilar', () => {
-    const m = mes({ poupado: 500, entradas: 5000 }); // poupou 10%
-    // alvo 10% → nota cheia; alvo 40% → um quarto da nota
-    expect(calcularIpf(m, [], 0, 0, 10).pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(25);
-    expect(calcularIpf(m, [], 0, 0, 40).pilares.find(p => p.chave === 'poupanca')!.pontos).toBe(6);
+  it('gastar menos que o teto também vale nota cheia', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 1000, Lazer: 200, Investimentos: 1000 });
+    expect(ponto(r, 'Essenciais')).toBe(50);
+    expect(ponto(r, 'Não essenciais')).toBe(30);
   });
 
-  it('mês sem entradas não quebra o cálculo', () => {
-    const r = calcularIpf(mes({ entradas: 0, saidas: 300, poupado: -300 }), [], 0);
+  it('essenciais em 75% da renda derruba o pilar pela metade', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 3750, Lazer: 1500, Investimentos: 1000 });
+    expect(ponto(r, 'Essenciais')).toBe(25);
+    expect(r.total).toBe(75);
+  });
+
+  it('gastar o dobro do teto zera o pilar', () => {
+    const r = calcularIpf(5000, TRES, { Lazer: 3000, Moradia: 2500, Investimentos: 1000 });
+    expect(ponto(r, 'Não essenciais')).toBe(0);
+  });
+
+  it('investir metade do alvo vale metade dos pontos', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 500 });
+    expect(ponto(r, 'Investimentos')).toBe(10);
+    expect(r.total).toBe(90);
+  });
+
+  it('investir acima do alvo não passa dos 20 pontos', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 3000 });
+    expect(ponto(r, 'Investimentos')).toBe(20);
+    expect(r.total).toBe(100);
+  });
+
+  it('soma as categorias do grupo e a reserva conta como investimento', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 1000, Alimentação: 800, Saúde: 700, 'Reserva de Emergência': 1000 });
+    expect(ponto(r, 'Essenciais')).toBe(50);
+    expect(ponto(r, 'Investimentos')).toBe(20);
+  });
+
+  it('categoria fora de qualquer grupo não entra na nota', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 1000, Outros: 4000 });
+    expect(r.total).toBe(100);
+  });
+
+  it('normaliza para 0–100 quando os percentuais não somam 100', () => {
+    const meio = [{ nome: 'Essenciais', percentual: 50, categorias: ['Moradia'] }];
+    const r = calcularIpf(5000, meio, { Moradia: 2500 });
+    expect(ponto(r, 'Essenciais')).toBe(50);
+    expect(r.total).toBe(100);
+  });
+
+  it('sem grupos, a nota não é calculada', () => {
+    const r = calcularIpf(5000, [], { Moradia: 100 });
+    expect(r.pronto).toBe(false);
+    expect(r.total).toBe(0);
+    expect(r.alertas[0].titulo).toBe('Sem grupos de orçamento');
+  });
+
+  it('sem receita, a nota não é calculada', () => {
+    const r = calcularIpf(0, TRES, { Moradia: 100 });
+    expect(r.pronto).toBe(false);
+    expect(r.alertas[0].titulo).toBe('Sem receita no mês');
+  });
+
+  it('avisa o grupo estourado e o investimento abaixo da regra', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 4000, Lazer: 1500, Investimentos: 0 });
+    expect(r.alertas.some(a => a.titulo === 'Essenciais acima do previsto')).toBe(true);
+    expect(r.alertas.some(a => a.titulo === 'Investimentos abaixo da regra')).toBe(true);
+  });
+
+  it('mês zerado devolve nota nos limites válidos', () => {
+    const r = calcularIpf(5000, TRES, {});
     expect(r.total).toBeGreaterThanOrEqual(0);
     expect(r.total).toBeLessThanOrEqual(100);
+    // gastou nada: os dois tetos dão cheio, o investimento dá zero
+    expect(r.total).toBe(80);
   });
 });

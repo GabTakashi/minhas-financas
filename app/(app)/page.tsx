@@ -9,14 +9,14 @@ import Constancia from '@/components/Constancia';
 import FaixaReceita from '@/components/FaixaReceita';
 import ScorePainel from '@/components/ScorePainel';
 import {
-  useAllMonths, useAllTransactions, useBudgets, useCard, useDiasRegistrados,
-  useMetaPct, useMonthRow, usePaidInvoices, usePurchases, useTransactions,
+  useAllMonths, useAllTransactions, useBudgetGroups, useBudgets, useCard, useDiasRegistrados,
+  useMonthRow, usePaidInvoices, usePurchases, useTransactions,
 } from '@/hooks/useFinance';
 import { iniciarMes as iniciarMesAction } from '@/lib/actions';
-import { faturaDoMes, limiteUtilizado } from '@/lib/invoice';
+import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL } from '@/lib/money';
-import { monthName, todayKey } from '@/lib/months';
-import { CATEGORIAS_POUPANCA, guardadoNoMes, resumoDoMes, serieDeResumos } from '@/lib/resumo';
+import { monthName } from '@/lib/months';
+import { CATEGORIAS_POUPANCA, guardadoNoMes, resumoDoMes } from '@/lib/resumo';
 import { calcularIpf } from '@/lib/score';
 import { gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
 
@@ -37,11 +37,11 @@ export default function Home() {
   const purchasesQ = usePurchases();
   const paidQ = usePaidInvoices();
   const budgetsQ = useBudgets(month);
+  const groupsQ = useBudgetGroups();
   const diasQ = useDiasRegistrados();
-  const metaPctQ = useMetaPct();
   const [modo, setModo] = useState<'previsto' | 'realizado'>('previsto');
 
-  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, diasQ, metaPctQ];
+  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, groupsQ, diasQ];
   if (queries.some(x => x.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(x => x.isError)) return <p className="empty-row">Erro ao carregar dados — verifique sua conexão e recarregue.</p>;
 
@@ -101,16 +101,10 @@ export default function Home() {
     return { key: k, entradas: tt.entradas, saidas: tt.saidas, saldo: tt.saldo };
   });
 
-  // IPF do mês, com os meses anteriores servindo de base para a estabilidade
-  const mesesAnteriores = (allMonths.data ?? []).map(m => m.month).filter(k => k < month).slice(-11);
+  // Nota do mês pela regra 50/30/20 — sempre no previsto, para não oscilar
+  // quando o usuário alterna entre Previsto e Realizado.
   const resumo = resumoDoMes(txs, purchases, card, month);
-  const ipf = calcularIpf(
-    resumo,
-    serieDeResumos(allTxs.data ?? [], purchases, card, mesesAnteriores),
-    meta,
-    card ? limiteUtilizado(purchases, card, paidMonths, todayKey()) : 0,
-    metaPctQ.data ?? 20,
-  );
+  const ipf = calcularIpf(tPrevisto.entradas, groupsQ.data ?? [], gastosPorCategoria(txs, fatura.items));
 
   // economia do mês = o que você separou (Investimentos/Reserva) + o que sobrou
   const guardado = guardadoNoMes(txs);
@@ -123,8 +117,6 @@ export default function Home() {
   return (
     <>
       <PageHead title={`${greeting()}!`} sub="Acompanhe a evolução das suas finanças." />
-
-      <FaixaReceita receita={tPrevisto.entradas} despesas={tPrevisto.saidas} guardado={guardado} />
 
       <div className="summary">
         <div className="card highlight">
@@ -164,6 +156,8 @@ export default function Home() {
           </div>
         </Link>
       </div>
+
+      <FaixaReceita receita={tPrevisto.entradas} despesas={tPrevisto.saidas} />
 
       <div className="painel-duplo">
         <ScorePainel ipf={ipf} />

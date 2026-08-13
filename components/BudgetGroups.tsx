@@ -2,10 +2,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { saveBudgetGroups } from '@/lib/actions';
-import { CATEGORIAS } from '@/lib/categories';
+import { CATEGORIAS, iconeDe } from '@/lib/categories';
 import { fmtBRL } from '@/lib/money';
+import { ehGrupoDePoupanca } from '@/lib/score';
 import { budgetGroupTotals } from '@/lib/totals';
-import { BudgetGroup } from '@/lib/types';
+import { Budget, BudgetGroup } from '@/lib/types';
 import { useToast } from './Providers';
 
 const PADRAO = [
@@ -16,8 +17,93 @@ const PADRAO = [
 
 interface EditGroup { nome: string; percentual: string }
 
-export default function BudgetGroups({ groups, gastos, entradas }: {
-  groups: BudgetGroup[]; gastos: Record<string, number>; entradas: number;
+/**
+ * Cor da barra. Em grupo de gasto, passar do limite é ruim; em grupo de
+ * poupança é o contrário — chegar ao alvo é o que fecha em verde.
+ */
+function tomDaBarra(gasto: number, limite: number, poupanca = false): string {
+  if (limite <= 0) return '';
+  if (poupanca) return gasto >= limite ? 'ok' : 'meta';
+  if (gasto > limite) return 'over';
+  return (gasto / limite) * 100 >= 80 ? 'warn' : '';
+}
+
+/**
+ * Uma categoria dentro do grupo. O limite fica discreto: aparece como texto e
+ * só vira campo ao clicar no lápis.
+ */
+function CategoriaLinha({ categoria, gasto, limite, aoSalvar }: {
+  categoria: string;
+  gasto: number;
+  limite: number;
+  aoSalvar: (categoria: string, valor: string) => Promise<void>;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [rascunho, setRascunho] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  const pct = limite > 0 ? Math.min(100, (gasto / limite) * 100) : 0;
+
+  function abrir() {
+    setRascunho(limite > 0 ? limite.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '');
+    setEditando(true);
+  }
+
+  async function confirmar() {
+    setSalvando(true);
+    await aoSalvar(categoria, rascunho);
+    setSalvando(false);
+    setEditando(false);
+  }
+
+  return (
+    <div className="orc-linha">
+      <span className="orc-icone">{iconeDe(categoria)}</span>
+      <span className="orc-nome">{categoria}</span>
+
+      {editando ? (
+        <span className="orc-editor">
+          <input
+            autoFocus inputMode="decimal" value={rascunho} placeholder="sem limite"
+            onChange={e => setRascunho(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); confirmar(); }
+              if (e.key === 'Escape') setEditando(false);
+            }}
+            aria-label={`Limite de ${categoria}`}
+          />
+          <button className="icon-btn" onClick={confirmar} disabled={salvando} title="Salvar limite">✓</button>
+          <button className="icon-btn" onClick={() => setEditando(false)} title="Cancelar">✕</button>
+        </span>
+      ) : (
+        <>
+          <span className="orc-valores">
+            <strong>{fmtBRL(gasto)}</strong>
+            <span className="card-sub">{limite > 0 ? ` de ${fmtBRL(limite)}` : ' · sem limite'}</span>
+          </span>
+          <button
+            className="icon-btn orc-lapis" onClick={abrir}
+            title={limite > 0 ? 'Editar limite' : 'Definir limite'}
+            aria-label={`${limite > 0 ? 'Editar' : 'Definir'} limite de ${categoria}`}
+          >
+            ✎
+          </button>
+        </>
+      )}
+
+      <div className="orc-trilho">
+        <div className={tomDaBarra(gasto, limite)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalvarLimite }: {
+  groups: BudgetGroup[];
+  gastos: Record<string, number>;
+  entradas: number;
+  budgets: Budget[];
+  aoSalvarLimite: (categoria: string, valor: string) => Promise<void>;
 }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -26,6 +112,7 @@ export default function BudgetGroups({ groups, gastos, entradas }: {
   // categoria -> índice em `nomes`; -1 = sem grupo
   const [catGrupo, setCatGrupo] = useState<Record<string, number>>({});
   const [salvando, setSalvando] = useState(false);
+  const [abertos, setAbertos] = useState<string[]>([]);
 
   function abrirEdicao() {
     setNomes(groups.length ? groups.map(g => ({ nome: g.nome, percentual: String(g.percentual) })) : PADRAO);
@@ -73,36 +160,113 @@ export default function BudgetGroups({ groups, gastos, entradas }: {
 
   if (!editando) {
     const totais = budgetGroupTotals(groups, gastos, entradas);
+    const limiteDe = (c: string) => Number(budgets.find(b => b.categoria === c)?.limite ?? 0);
+    const semGrupo = CATEGORIAS.filter(c => !groups.some(g => g.categorias.includes(c)));
+    const alternar = (nome: string) =>
+      setAbertos(a => a.includes(nome) ? a.filter(x => x !== nome) : [...a, nome]);
+
     return (
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="section-header" style={{ marginBottom: totais.length ? 8 : 0 }}>
+      <>
+        <div className="section-header">
           <h2>Grupos de orçamento</h2>
           <button className="btn-ghost" onClick={abrirEdicao}>{groups.length ? 'Editar grupos' : 'Criar grupos'}</button>
         </div>
+
         {totais.length === 0 && (
-          <p className="empty-row" style={{ padding: '8px 0' }}>
-            Divida seu orçamento em grupos (ex.: 50% Essenciais, 30% Não essenciais, 20% Investimentos) e acompanhe quanto já gastou de cada um.
-          </p>
+          <div className="card" style={{ marginBottom: 'var(--s-4)' }}>
+            <p className="card-sub">
+              Divida seu orçamento em grupos (ex.: 50% Essenciais, 30% Não essenciais, 20% Investimentos)
+              e acompanhe quanto já gastou de cada um. É essa divisão que dá a nota da Visão geral.
+            </p>
+          </div>
         )}
+
+        {entradas === 0 && totais.length > 0 && (
+          <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
+            Registre uma entrada no mês para calcular quanto cada grupo pode gastar.
+          </div>
+        )}
+
         {totais.map(t => {
+          const aberto = abertos.includes(t.nome);
           const pct = t.orcado > 0 ? Math.min(100, (t.gasto / t.orcado) * 100) : 0;
-          const cls = t.orcado > 0 && t.gasto > t.orcado ? 'over' : pct >= 80 ? 'warn' : '';
+          const poupanca = ehGrupoDePoupanca(t);
+          const idCorpo = `grupo-${t.nome.replace(/\s+/g, '-')}`;
           return (
-            <div className="budget-row" key={t.nome}>
-              <span className="b-cat">{t.nome} <small style={{ color: 'var(--text-3)' }}>({t.percentual}%)</small></span>
-              <div className="b-bar"><div className={cls} style={{ width: `${pct}%` }} /></div>
-              <span className="b-spent">
-                {entradas > 0
-                  ? `${fmtBRL(t.gasto)} de ${fmtBRL(t.orcado)}${t.gasto > t.orcado ? ' — estourou!' : ''}`
-                  : `${fmtBRL(t.gasto)} gastos`}
-              </span>
+            <div className={`card orc-grupo ${aberto ? 'aberto' : ''}`} key={t.nome}>
+              <button
+                className="orc-grupo-topo" onClick={() => alternar(t.nome)}
+                aria-expanded={aberto} aria-controls={idCorpo}
+              >
+                <span className="orc-seta" aria-hidden="true">›</span>
+                <span className="orc-grupo-nome">
+                  {t.nome} <span className="card-sub">
+                    {poupanca ? `guardar ${t.percentual}%` : `até ${t.percentual}%`} da renda
+                  </span>
+                </span>
+                <span className="orc-grupo-valores">
+                  <strong>{fmtBRL(t.gasto)}</strong>
+                  <span className="card-sub">{entradas > 0 ? ` de ${fmtBRL(t.orcado)}` : ' gastos'}</span>
+                </span>
+              </button>
+
+              <div className="orc-grupo-barra">
+                <div className={tomDaBarra(t.gasto, t.orcado, poupanca)} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="orc-grupo-rodape">
+                <span>{t.categorias.length} categoria(s)</span>
+                <span>
+                  {t.orcado <= 0 ? '—'
+                    : poupanca
+                      ? t.gasto >= t.orcado ? 'meta batida ✓' : `faltam ${fmtBRL(t.orcado - t.gasto)}`
+                      : t.gasto > t.orcado ? `estourou ${fmtBRL(t.gasto - t.orcado)}` : `restam ${fmtBRL(t.orcado - t.gasto)}`}
+                </span>
+              </div>
+
+              {aberto && (
+                <div className="orc-grupo-corpo" id={idCorpo}>
+                  {t.categorias.length === 0 && (
+                    <p className="card-sub">Nenhuma categoria neste grupo — use “Editar grupos”.</p>
+                  )}
+                  {t.categorias.map(c => (
+                    <CategoriaLinha
+                      key={c} categoria={c} gasto={gastos[c] || 0}
+                      limite={limiteDe(c)} aoSalvar={aoSalvarLimite}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
-        {entradas === 0 && totais.length > 0 && (
-          <p className="card-sub" style={{ marginTop: 8 }}>Registre uma entrada no mês para calcular os valores orçados.</p>
+
+        {semGrupo.length > 0 && (
+          <div className={`card orc-grupo solto ${abertos.includes('__sem') ? 'aberto' : ''}`}>
+            <button
+              className="orc-grupo-topo" onClick={() => alternar('__sem')}
+              aria-expanded={abertos.includes('__sem')} aria-controls="grupo-sem"
+            >
+              <span className="orc-seta" aria-hidden="true">›</span>
+              <span className="orc-grupo-nome">
+                Fora dos grupos <span className="card-sub">não contam na nota</span>
+              </span>
+              <span className="orc-grupo-valores">
+                <strong>{fmtBRL(semGrupo.reduce((s, c) => s + (gastos[c] || 0), 0))}</strong>
+              </span>
+            </button>
+            {abertos.includes('__sem') && (
+              <div className="orc-grupo-corpo" id="grupo-sem">
+                {semGrupo.map(c => (
+                  <CategoriaLinha
+                    key={c} categoria={c} gasto={gastos[c] || 0}
+                    limite={limiteDe(c)} aoSalvar={aoSalvarLimite}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
-      </div>
+      </>
     );
   }
 

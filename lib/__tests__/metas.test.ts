@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analisarPadrao, PontoMeta, serieMetas, statusDoMes } from '@/lib/metas';
-import { ResumoMes } from '@/lib/score';
+import { ResumoMes } from '@/lib/resumo';
 
 const r = (month: string, poupado: number): ResumoMes =>
   ({ month, entradas: 5000, saidas: 5000 - poupado, poupado, fatura: 0 });

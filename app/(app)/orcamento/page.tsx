@@ -41,6 +41,7 @@ export default function Orcamento() {
       return;
     }
     qc.invalidateQueries();
+    toast(novoLimite === null ? `Limite de ${categoria} removido` : `Limite de ${categoria} salvo`);
   }
 
   const totalOrcado = budgets.reduce((s, b) => s + Number(b.limite), 0);
@@ -48,42 +49,24 @@ export default function Orcamento() {
 
   return (
     <>
-      <PageHead title="Orçamento" sub="Defina limites por categoria e acompanhe o consumo do mês." />
-      <BudgetGroups groups={groupsQ.data ?? []} gastos={gastos} entradas={entradas} />
-      <div className="card">
-        {CATEGORIAS.map(categoria => {
-          const b = budgets.find(x => x.categoria === categoria);
-          const limite = b ? Number(b.limite) : 0;
-          const gasto = gastos[categoria] || 0;
-          const pct = limite > 0 ? Math.min(100, (gasto / limite) * 100) : 0;
-          const cls = limite > 0 && gasto > limite ? 'over' : pct >= 80 ? 'warn' : '';
-          return (
-            <div className="budget-row" key={categoria}>
-              <span className="b-cat">{categoria}</span>
-              <input
-                className="b-limit"
-                placeholder="sem limite"
-                defaultValue={limite ? limite.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''}
-                onBlur={e => setLimite(categoria, e.target.value)}
-                aria-label={`Limite de ${categoria}`}
-              />
-              <div className="b-bar"><div className={cls} style={{ width: `${pct}%` }} /></div>
-              <span className="b-spent">
-                {limite > 0
-                  ? `${fmtBRL(gasto)} de ${fmtBRL(limite)}${gasto > limite ? ' — estourou!' : ''}`
-                  : gasto > 0 ? `${fmtBRL(gasto)} gastos` : '—'}
-              </span>
-            </div>
-          );
-        })}
-        <div className="budget-row" style={{ borderTop: '1px solid var(--border-soft)', marginTop: 4 }}>
-          <span className="b-cat" style={{ fontWeight: 600 }}>Total</span>
-          <span className="b-limit" style={{ border: 'none', background: 'none' }} />
-          <div className="b-bar" style={{ visibility: 'hidden' }} />
-          <span className="b-spent" style={{ fontWeight: 600, color: 'var(--text-1)' }}>
-            {fmtBRL(totalGasto)} de {fmtBRL(totalOrcado)}
+      <PageHead title="Orçamento" sub="Reparta a renda em grupos e acompanhe o consumo do mês." />
+
+      <BudgetGroups
+        groups={groupsQ.data ?? []}
+        gastos={gastos}
+        entradas={entradas}
+        budgets={budgets}
+        aoSalvarLimite={setLimite}
+      />
+
+      <div className="card orc-total">
+        <span>Total do mês</span>
+        <span className="orc-total-valor">
+          <strong>{fmtBRL(totalGasto)}</strong>
+          <span className="card-sub">
+            {totalOrcado > 0 ? ` gastos · ${fmtBRL(totalOrcado)} em limites` : ' gastos'}
           </span>
-        </div>
+        </span>
       </div>
     </>
   );

@@ -21,3 +21,6 @@ export const ICONE_CATEGORIA: Record<string, string> = {
 
 export const iconeDe = (categoria?: string | null) =>
   (categoria && ICONE_CATEGORIA[categoria]) || '📦';
+
+/** Gastos nestas categorias não são consumo: é dinheiro guardado. */
+export const CATEGORIAS_POUPANCA: string[] = ['Investimentos', 'Reserva de Emergência'];

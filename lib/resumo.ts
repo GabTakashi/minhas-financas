@@ -1,10 +1,19 @@
+import { CATEGORIAS_POUPANCA } from './categories';
 import { faturaDoMes } from './invoice';
-import { ResumoMes } from './score';
 import { monthTotals } from './totals';
 import { Card, CardPurchase, Transaction } from './types';
 
-/** Gastos nestas categorias não são consumo: viram poupança no cálculo do IPF. */
-export const CATEGORIAS_POUPANCA = ['Investimentos', 'Reserva de Emergência'];
+export { CATEGORIAS_POUPANCA };
+
+export interface ResumoMes {
+  month: string;
+  entradas: number;
+  saidas: number;
+  /** quanto sobrou + o que foi para investimento/reserva */
+  poupado: number;
+  /** fatura do cartão do mês */
+  fatura: number;
+}
 
 /**
  * Quanto foi deliberadamente guardado no mês: lançamentos nas categorias de

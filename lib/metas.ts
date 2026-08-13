@@ -1,4 +1,4 @@
-import { ResumoMes } from './score';
+import { ResumoMes } from './resumo';
 
 export interface PontoMeta { month: string; economia: number; meta: number; pct: number }
 
