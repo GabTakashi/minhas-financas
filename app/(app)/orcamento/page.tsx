@@ -1,6 +1,7 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
 import BudgetGroups from '@/components/BudgetGroups';
+import DonutOrcamento from '@/components/DonutOrcamento';
 import PageHead from '@/components/PageHead';
 import { useMonth, useToast } from '@/components/Providers';
 import { useBudgetGroups, useBudgets, useCard, usePurchases, useTransactions } from '@/hooks/useFinance';
@@ -8,7 +9,7 @@ import { setBudget } from '@/lib/actions';
 import { CATEGORIAS } from '@/lib/categories';
 import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
-import { gastosPorCategoria, monthTotals } from '@/lib/totals';
+import { distribuicaoPorGrupo, gastosPorCategoria, monthTotals } from '@/lib/totals';
 
 export default function Orcamento() {
   const { month } = useMonth();
@@ -50,6 +51,12 @@ export default function Orcamento() {
   return (
     <>
       <PageHead title="Orçamento" sub="Reparta a renda em grupos e acompanhe o consumo do mês." />
+
+      <div className="card chart-card" style={{ marginBottom: 'var(--s-5)' }}>
+        <h3>Para onde foi o dinheiro</h3>
+        <div className="card-sub">tudo que saiu neste mês, repartido entre os grupos</div>
+        <DonutOrcamento fatias={distribuicaoPorGrupo(groupsQ.data ?? [], gastos)} />
+      </div>
 
       <BudgetGroups
         groups={groupsQ.data ?? []}

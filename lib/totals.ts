@@ -58,6 +58,41 @@ export function gastosPorCategoriaRealizado(txs: Transaction[], invoiceItems: In
   return map;
 }
 
+export interface FatiaGrupo {
+  nome: string;
+  valor: number;
+  /** fatia do total gasto, 0–100 */
+  pct: number;
+  /** true no bolo das categorias que não estão em grupo nenhum */
+  solto: boolean;
+}
+
+/**
+ * Divide o total gasto no mês entre os grupos de orçamento, com o que sobrou
+ * fora deles no fim. Grupos sem gasto ficam na lista (com 0) para a legenda
+ * continuar mostrando todos; "Fora dos grupos" só aparece quando existe.
+ */
+export function distribuicaoPorGrupo(
+  groups: { nome: string; categorias: string[] }[],
+  gastosPorCategoria: Record<string, number>,
+): FatiaGrupo[] {
+  const agrupadas = new Set(groups.flatMap(g => g.categorias));
+  const fatias: FatiaGrupo[] = groups.map(g => ({
+    nome: g.nome,
+    valor: g.categorias.reduce((s, c) => s + (gastosPorCategoria[c] || 0), 0),
+    pct: 0,
+    solto: false,
+  }));
+
+  const fora = Object.entries(gastosPorCategoria)
+    .filter(([c]) => !agrupadas.has(c))
+    .reduce((s, [, v]) => s + v, 0);
+  if (fora > 0) fatias.push({ nome: 'Fora dos grupos', valor: fora, pct: 0, solto: true });
+
+  const total = fatias.reduce((s, f) => s + f.valor, 0);
+  return fatias.map(f => ({ ...f, pct: total > 0 ? (f.valor / total) * 100 : 0 }));
+}
+
 export interface BudgetGroupTotal {
   nome: string;
   percentual: number;

@@ -21,6 +21,17 @@
   --warning-soft: rgba(255,196,107,.14);
   --accent: #E45FB0;      /* magenta — segundo tom dos gráficos */
 
+  /* ── Séries categóricas dos gráficos ──
+     Ordem fixa: a cor segue o grupo, nunca a posição no ranking.
+     Validada para daltonismo contra o fundo #101120 (pior par adjacente:
+     laranja↔verde, ΔE 10.7 deutan / 13.0 tritan). O laranja é um pouco mais
+     quente que --warning justamente para limpar esse par. */
+  --serie-1: #3DD6A0;
+  --serie-2: #FF9F4A;
+  --serie-3: #C0B4FE;
+  --serie-4: #E45FB0;
+  --serie-neutra: #6E7191; /* "fora dos grupos" — cinza de propósito */
+
   /* ── Texto ── */
   --text-1: #FFFFFF;
   --text-2: #A5A7BC;
@@ -934,6 +945,51 @@ a.nav-item { text-decoration: none; }
 .auth-error { color: var(--expense); font-size: 13px; margin-bottom: var(--s-3); }
 
 /* ── Orçamento ── */
+/* ── Orçamento: rosca da distribuição ── */
+.donut { display: flex; align-items: center; gap: var(--s-6); flex-wrap: wrap; }
+.donut-grafico { position: relative; width: 200px; flex-shrink: 0; }
+.donut-grafico svg { display: block; width: 100%; height: auto; overflow: visible; }
+.donut-grafico circle[stroke]:not([stroke="var(--surface-3)"]) { cursor: pointer; }
+/* o centro é HTML, não <text>: assim o valor usa a tipografia do app e trunca sozinho */
+.donut-centro {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  pointer-events: none; text-align: center; padding: 0 34px;
+}
+.donut-centro .card-label { margin-bottom: 0; font-size: 9.5px; letter-spacing: .1em; }
+/* 17px deixa caber um total de 5 dígitos sem quebrar linha dentro do furo */
+.donut-centro strong {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1;
+}
+
+.donut-legenda { flex: 1; min-width: 210px; list-style: none; }
+.donut-legenda li {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3) 0; border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px; transition: opacity 0.15s var(--ease);
+}
+.donut-legenda li:last-child { border-bottom: none; }
+.donut-legenda li.apagada { opacity: .4; }
+.donut-legenda .dot { flex-shrink: 0; }
+.donut-legenda-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donut-legenda-valor {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  color: var(--text-1); white-space: nowrap;
+}
+.donut-legenda-pct {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  color: var(--text-3); width: 42px; text-align: right; flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .donut { gap: var(--s-4); justify-content: center; }
+  .donut-grafico { width: 168px; }
+  .donut-centro { padding: 0 26px; }
+  .donut-centro strong { font-size: 15px; }
+  .donut-legenda { min-width: 100%; }
+}
+
 /* ── Orçamento: grupos expansíveis com as categorias dentro ── */
 .orc-grupo { margin-bottom: var(--s-3); padding: var(--s-4) var(--s-5); }
 .orc-grupo.solto { border-style: dashed; }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { budgetGroupTotals, gastosPorCategoria, gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado } from '@/lib/totals';
+import {
+  budgetGroupTotals, distribuicaoPorGrupo, gastosPorCategoria, gastosPorCategoriaRealizado,
+  monthTotals, monthTotalsRealizado,
+} from '@/lib/totals';
 import { InvoiceItem, Transaction } from '@/lib/types';
 
 function tx(p: Partial<Transaction>): Transaction {
@@ -115,5 +118,49 @@ describe('budgetGroupTotals', () => {
   it('sem entradas, o orçado fica zero', () => {
     const r = budgetGroupTotals(grupos, gastos, 0);
     expect(r[0].orcado).toBe(0);
+  });
+});
+
+describe('distribuicaoPorGrupo', () => {
+  const grupos = [
+    { nome: 'Essenciais', categorias: ['Moradia', 'Saúde'] },
+    { nome: 'Não essenciais', categorias: ['Lazer'] },
+    { nome: 'Investimentos', categorias: ['Investimentos'] },
+  ];
+
+  it('reparte o gasto entre os grupos, com o percentual de cada um', () => {
+    const d = distribuicaoPorGrupo(grupos, { Moradia: 400, Saúde: 100, Lazer: 300, Investimentos: 200 });
+    expect(d.map(f => [f.nome, f.valor, Math.round(f.pct)])).toEqual([
+      ['Essenciais', 500, 50],
+      ['Não essenciais', 300, 30],
+      ['Investimentos', 200, 20],
+    ]);
+  });
+
+  it('junta o que não está em grupo nenhum no fim', () => {
+    const d = distribuicaoPorGrupo(grupos, { Moradia: 500, Outros: 300, Transporte: 200 });
+    expect(d.at(-1)).toMatchObject({ nome: 'Fora dos grupos', valor: 500, solto: true });
+    expect(Math.round(d.at(-1)!.pct)).toBe(50);
+  });
+
+  it('não cria o bolo "fora dos grupos" quando tudo está agrupado', () => {
+    const d = distribuicaoPorGrupo(grupos, { Moradia: 100 });
+    expect(d.some(f => f.solto)).toBe(false);
+  });
+
+  it('mantém na lista o grupo que não gastou nada', () => {
+    const d = distribuicaoPorGrupo(grupos, { Moradia: 100 });
+    expect(d).toHaveLength(3);
+    expect(d[2]).toMatchObject({ nome: 'Investimentos', valor: 0, pct: 0 });
+  });
+
+  it('mês sem gasto nenhum devolve tudo zerado, sem dividir por zero', () => {
+    const d = distribuicaoPorGrupo(grupos, {});
+    expect(d.every(f => f.valor === 0 && f.pct === 0)).toBe(true);
+  });
+
+  it('sem grupos, tudo cai fora dos grupos', () => {
+    const d = distribuicaoPorGrupo([], { Moradia: 100, Lazer: 300 });
+    expect(d).toEqual([{ nome: 'Fora dos grupos', valor: 400, pct: 100, solto: true }]);
   });
 });
