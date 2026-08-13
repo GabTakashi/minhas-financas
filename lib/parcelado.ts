@@ -93,3 +93,76 @@ export function saldoRestante(p: Pick<Parcelado, 'tipo' | 'parcelas' | 'parcelas
 export function quitado(p: Pick<Parcelado, 'tipo' | 'parcelas' | 'parcelas_pagas'>): boolean {
   return !semPrazo(p.tipo) && !!p.parcelas && p.parcelas_pagas >= p.parcelas;
 }
+
+const cent = (v: number) => Math.round(v * 100) / 100;
+
+export interface PontoProjecao {
+  mes: string;
+  /** Quanto ainda se deve no começo do mês, antes de pagar as parcelas dele. */
+  restante: number;
+  /** Soma das parcelas que vencem neste mês. */
+  aPagar: number;
+}
+
+export interface Projecao {
+  pontos: PontoProjecao[];
+  /** Mês em que a última parcela é paga. null se a lista não quita dentro do limite. */
+  mesQuitacao: string | null;
+  /** true quando o horizonte foi cortado pelo limite de meses. */
+  truncado: boolean;
+}
+
+type ParceladoProjetavel = Pick<
+  Parcelado, 'tipo' | 'parcelas' | 'parcelas_pagas' | 'valor_parcela' | 'valor_total' | 'primeiro_vencimento'
+>;
+
+/**
+ * Projeta a dívida caindo mês a mês até quitar, somando todos os parcelados.
+ *
+ * Recorrentes ficam de fora: não têm saldo final, entrariam como dívida infinita.
+ * Parcela vencida (mês anterior a `mesInicial` e ainda não paga) é trazida para
+ * `mesInicial` — a dívida existe hoje, não no passado.
+ */
+export function projecaoDivida(
+  lista: ParceladoProjetavel[],
+  mesInicial: string,
+  limite = 36,
+): Projecao {
+  const aPagarPorMes = new Map<string, number>();
+
+  for (const p of lista) {
+    if (semPrazo(p.tipo) || !p.parcelas) continue;
+    const total = p.valor_total ?? p.valor_parcela * p.parcelas;
+    const inicio = mesDe(p.primeiro_vencimento);
+    const pagas = Math.max(0, Math.min(p.parcelas_pagas, p.parcelas));
+    for (let i = pagas + 1; i <= p.parcelas; i++) {
+      const venc = shiftMonth(inicio, i - 1);
+      const mes = venc < mesInicial ? mesInicial : venc;
+      aPagarPorMes.set(mes, cent((aPagarPorMes.get(mes) ?? 0) + valorDaParcela(total, p.parcelas, i)));
+    }
+  }
+
+  let saldo = cent([...aPagarPorMes.values()].reduce((s, v) => s + v, 0));
+  if (saldo <= 0) return { pontos: [], mesQuitacao: null, truncado: false };
+
+  const pontos: PontoProjecao[] = [];
+  let mes = mesInicial;
+  let mesQuitacao: string | null = null;
+  let truncado = false;
+
+  for (;;) {
+    const aPagar = aPagarPorMes.get(mes) ?? 0;
+    pontos.push({ mes, restante: saldo, aPagar });
+    saldo = cent(saldo - aPagar);
+    if (saldo <= 0) {
+      mesQuitacao = mes;
+      // ponto extra para a linha encostar no zero
+      pontos.push({ mes: shiftMonth(mes, 1), restante: 0, aPagar: 0 });
+      break;
+    }
+    if (pontos.length >= limite) { truncado = true; break; }
+    mes = shiftMonth(mes, 1);
+  }
+
+  return { pontos, mesQuitacao, truncado };
+}

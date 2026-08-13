@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calendario, mesFinal, parcelaDoMes, Parcelado, quitado,
+  calendario, mesFinal, parcelaDoMes, Parcelado, projecaoDivida, quitado,
   saldoRestante, valorDaParcela, vigenteEm,
 } from '@/lib/parcelado';
 
@@ -75,5 +75,65 @@ describe('saldoRestante e quitado', () => {
     const r = p({ tipo: 'recorrente', parcelas: null, valor_total: null });
     expect(saldoRestante(r)).toBeNull();
     expect(quitado(r)).toBe(false);
+  });
+});
+
+describe('projecaoDivida', () => {
+  it('cai uma parcela por mês até encostar no zero', () => {
+    const { pontos, mesQuitacao, truncado } = projecaoDivida([p({ parcelas: 3, valor_total: 300 })], '2026-08');
+    expect(pontos.map(x => [x.mes, x.restante, x.aPagar])).toEqual([
+      ['2026-08', 300, 100],
+      ['2026-09', 200, 100],
+      ['2026-10', 100, 100],
+      ['2026-11', 0, 0],
+    ]);
+    expect(mesQuitacao).toBe('2026-10');
+    expect(truncado).toBe(false);
+  });
+
+  it('começa do saldo restante, ignorando as parcelas já pagas', () => {
+    const { pontos } = projecaoDivida([p({ parcelas: 12, parcelas_pagas: 10 })], '2027-06');
+    expect(pontos[0]).toEqual({ mes: '2027-06', restante: 200, aPagar: 100 });
+    expect(pontos.at(-1)).toEqual({ mes: '2027-08', restante: 0, aPagar: 0 });
+  });
+
+  it('soma vários parcelados no mesmo mês', () => {
+    const proj = projecaoDivida([
+      p({ parcelas: 2, valor_total: 200 }),
+      p({ id: 'q', parcelas: 3, valor_total: 900, primeiro_vencimento: '2026-08-05' }),
+    ], '2026-08');
+    expect(proj.pontos[0]).toEqual({ mes: '2026-08', restante: 1100, aPagar: 400 });
+    expect(proj.pontos[1]).toEqual({ mes: '2026-09', restante: 700, aPagar: 400 });
+    expect(proj.pontos[2]).toEqual({ mes: '2026-10', restante: 300, aPagar: 300 });
+    expect(proj.mesQuitacao).toBe('2026-10');
+  });
+
+  it('traz parcela atrasada para o mês inicial', () => {
+    // 3 parcelas desde ago/2026, nenhuma paga, mas já estamos em out/2026
+    const { pontos } = projecaoDivida([p({ parcelas: 3, valor_total: 300 })], '2026-10');
+    expect(pontos[0]).toEqual({ mes: '2026-10', restante: 300, aPagar: 300 });
+    expect(pontos[1]).toEqual({ mes: '2026-11', restante: 0, aPagar: 0 });
+  });
+
+  it('ignora recorrentes e quitados', () => {
+    const proj = projecaoDivida([
+      p({ tipo: 'recorrente', parcelas: null, valor_total: null }),
+      p({ id: 'q', parcelas: 12, parcelas_pagas: 12 }),
+    ], '2026-08');
+    expect(proj.pontos).toEqual([]);
+    expect(proj.mesQuitacao).toBeNull();
+  });
+
+  it('corta no limite de meses e avisa', () => {
+    const proj = projecaoDivida([p({ parcelas: 360, valor_total: 360000, valor_parcela: 1000 })], '2026-08', 24);
+    expect(proj.pontos).toHaveLength(24);
+    expect(proj.truncado).toBe(true);
+    expect(proj.mesQuitacao).toBeNull();
+  });
+
+  it('distribui os centavos que sobram como o resto do app', () => {
+    const { pontos } = projecaoDivida([p({ parcelas: 3, valor_total: 100 })], '2026-08');
+    expect(pontos.map(x => x.aPagar)).toEqual([33.33, 33.33, 33.34, 0]);
+    expect(pontos[0].restante).toBe(100);
   });
 });

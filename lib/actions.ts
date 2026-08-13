@@ -2,7 +2,7 @@
 import { auth } from '@/auth';
 import { sql } from '@/lib/db';
 import { iniciarMesParaUsuario } from '@/lib/newMonth';
-import { Parcelado, parcelaDoMes, TipoParcelado, valorDaParcela } from '@/lib/parcelado';
+import { Parcelado, parcelaDoMes, saldoRestante, semPrazo, TipoParcelado, valorDaParcela } from '@/lib/parcelado';
 import { Budget, BudgetGroup, Card, CardPurchase, MonthRow, Transaction, TxType } from '@/lib/types';
 
 // Toda a segurança de acesso a dados vive aqui: cada action resolve o usuário
@@ -31,7 +31,8 @@ export async function listMonths(): Promise<MonthRow[]> {
 
 export async function listTransactions(month: string): Promise<Transaction[]> {
   const uid = await userId();
-  return await sql`select id, month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago, parcelado_id
+  return await sql`select id, month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago, parcelado_id,
+    to_char(created_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD') as data_registro
     from transactions where user_id = ${uid} and month = ${month} order by created_at` as Transaction[];
 }
 
@@ -309,6 +310,54 @@ export async function converterEmParcelado(txId: string, input: ParceladoInput):
   if (antiga.pago) {
     await sql`update transactions set pago = true
       where user_id = ${uid} and month = ${antiga.month} and parcelado_id = ${parceladoId}`;
+  }
+}
+
+/**
+ * Registra o pagamento da parcela do mês: sobe `parcelas_pagas` em 1 (nunca além
+ * do total) e marca como pago o lançamento que o parcelado gerou naquele mês.
+ */
+export async function pagarParcela(id: string, month: string): Promise<void> {
+  const uid = await userId();
+  const rows = await sql`select parcelas, parcelas_pagas from parcelados
+    where id = ${id} and user_id = ${uid}`;
+  const p = rows[0] as { parcelas: number | null; parcelas_pagas: number } | undefined;
+  if (!p) throw new Error('Parcelado não encontrado');
+  if (p.parcelas != null && p.parcelas_pagas >= p.parcelas) return;
+
+  await sql`update parcelados set parcelas_pagas = parcelas_pagas + 1
+    where id = ${id} and user_id = ${uid}`;
+  await sql`update transactions set pago = true
+    where user_id = ${uid} and parcelado_id = ${id} and month = ${month}`;
+}
+
+/**
+ * Quitação antecipada: fecha o parcelado, apaga os lançamentos pendentes que ele
+ * geraria daqui pra frente e — se `lancar` — registra o saldo restante como um
+ * gasto variável já pago em `month` (variável, não fixo, para o mês seguinte não
+ * copiar a quitação).
+ */
+export async function quitarParcelado(id: string, month: string, lancar: boolean): Promise<void> {
+  const uid = await userId();
+  const rows = await sql`select nome, tipo, categoria, valor_total::float as valor_total,
+    parcelas, valor_parcela::float as valor_parcela, parcelas_pagas, dia_vencimento
+    from parcelados where id = ${id} and user_id = ${uid}`;
+  const p = rows[0] as (Parcelado & { dia_vencimento: number }) | undefined;
+  if (!p) throw new Error('Parcelado não encontrado');
+  if (semPrazo(p.tipo) || !p.parcelas) throw new Error('Recorrente não tem saldo para quitar');
+
+  const restante = saldoRestante(p) ?? 0;
+
+  await sql`delete from transactions
+    where user_id = ${uid} and parcelado_id = ${id} and pago = false`;
+  await sql`update parcelados set parcelas_pagas = parcelas
+    where id = ${id} and user_id = ${uid}`;
+
+  if (lancar && restante > 0) {
+    await sql`insert into transactions
+      (user_id, month, type, descricao, valor, categoria, dia_vencimento, pago)
+      values (${uid}, ${month}, 'variavel', ${`Quitação de ${p.nome}`}, ${restante},
+        ${p.categoria}, ${p.dia_vencimento}, true)`;
   }
 }
 

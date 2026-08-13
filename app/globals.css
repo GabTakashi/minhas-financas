@@ -239,13 +239,17 @@ a { color: var(--primary); }
 .faixa-num small { font-size: 0.55em; color: var(--text-3); }
 .faixa-num.expense { color: var(--expense); }
 .faixa-num.primary { color: var(--primary); }
+.faixa-num.income { color: var(--income); }
+.faixa-num.warning { color: var(--warning); }
 .faixa-barra {
   height: 5px; border-radius: var(--r-full); background: var(--surface-3);
   overflow: hidden; margin-top: var(--s-5);
 }
+/* no painel a barra vem sozinha, logo abaixo dos cards do mês */
+.faixa > .faixa-barra:first-child { margin-top: 0; }
 .faixa-barra div {
   height: 100%; border-radius: var(--r-full);
-  background: linear-gradient(90deg, var(--accent), var(--primary-deep), var(--info));
+  background: linear-gradient(90deg, var(--accent), var(--primary-deep), var(--primary));
   transition: width 0.45s var(--ease);
 }
 .faixa-legenda {
@@ -433,6 +437,7 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 .score-pilares { flex: 1; min-width: 0; }
 
 .pilar-linha { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s-3); margin-bottom: var(--s-3); font-size: 13px; }
+.pilar-valores { grid-column: 1 / -1; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .pilar-linha:last-child { margin-bottom: 0; }
 .pilar-nome { color: var(--text-2); }
 .pilar-pontos { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-1); }
@@ -523,6 +528,19 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 .tx-linha.quitado .tx-valor { opacity: .55; }
 .tx-linha.quitado .tx-principal strong { color: var(--text-2); }
 
+/* ── Extrato agrupado por dia ── */
+.dia-grupo { margin-bottom: var(--s-5); }
+.dia-cabecalho { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.dia-nome {
+  font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-2); white-space: nowrap;
+}
+.dia-regua { flex: 1; height: 1px; background: var(--border-soft); }
+.dia-saldo {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+
 /* botão flutuante (só no celular) */
 .fab { display: none; }
 
@@ -543,6 +561,24 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
   font-size: 12px; color: var(--text-3); margin-top: var(--s-2);
 }
 .status-tag.ok { background: var(--income-soft); color: var(--income); }
+
+/* faixa do topo dos Parcelados — mesma anatomia da faixa de receita do painel */
+.faixa-hero { padding-bottom: var(--s-5); }
+.faixa-hero .card-label { margin-bottom: var(--s-2); }
+.faixa-hero .faixa-metricas .card-sub { display: block; margin-top: 2px; }
+.faixa-barra.divida div { background: var(--grad-btn); }
+
+/* ações do card: pagar/quitar à esquerda, editar/excluir empurrados para a direita */
+.parcelado-acoes { flex-wrap: wrap; align-items: center; }
+.parcelado-acoes .btn-primary { padding: 9px var(--s-4); font-size: 13px; }
+.parcelado-acoes-fim { display: flex; gap: var(--s-2); margin-left: auto; }
+
+.quitar-valor {
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm); padding: var(--s-4);
+}
+.quitar-valor .card-label { margin-bottom: var(--s-1); }
+.quitar-valor .card-sub { display: block; margin-top: var(--s-1); }
 
 /* ── Modal ── */
 .modal-fundo {
@@ -595,6 +631,9 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 .campo input::placeholder { color: var(--text-3); }
 .campo .seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
 
+.campo .campo-dica { display: block; margin-top: var(--s-2); }
+/* sem isto o seletor nativo de data vem claro em cima do fundo escuro */
+.campo input[type="date"] { color-scheme: dark; }
 .campo-check { display: flex; align-items: center; gap: var(--s-2); font-size: 14px; cursor: pointer; }
 .campo-check input { width: 17px; height: 17px; accent-color: var(--primary); }
 
@@ -845,6 +884,16 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
   /* modais não podem ficar atrás da barra de abas */
   .modal-fundo { align-items: flex-start; padding-top: calc(var(--s-5) + env(safe-area-inset-top)); }
   .modal { max-height: calc(100vh - 190px); }
+
+  /* faixa dos Parcelados: métricas em duas colunas, sem as divisórias verticais */
+  .faixa-hero .faixa-metricas {
+    width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4); margin-top: var(--s-4);
+  }
+  .faixa-hero .faixa-metricas > div { border-left: none; padding-left: 0; }
+  .faixa-hero .faixa-num { font-size: 20px; }
+  .parcelado-acoes .btn-primary { width: auto; }
+  .parcelado-acoes-fim { margin-left: 0; }
 }
 
 /* ── Login ── */
@@ -885,6 +934,97 @@ a.nav-item { text-decoration: none; }
 .auth-error { color: var(--expense); font-size: 13px; margin-bottom: var(--s-3); }
 
 /* ── Orçamento ── */
+/* ── Orçamento: grupos expansíveis com as categorias dentro ── */
+.orc-grupo { margin-bottom: var(--s-3); padding: var(--s-4) var(--s-5); }
+.orc-grupo.solto { border-style: dashed; }
+.orc-grupo-topo {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: inherit; color: inherit; text-align: left;
+}
+.orc-seta {
+  color: var(--text-3); font-size: 20px; line-height: 1; flex-shrink: 0;
+  transition: transform 0.2s var(--ease);
+}
+.orc-grupo.aberto .orc-seta { transform: rotate(90deg); color: var(--primary); }
+.orc-grupo-nome { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.orc-grupo-nome .card-sub { font-weight: 400; margin-left: var(--s-2); }
+.orc-grupo-valores {
+  flex-shrink: 0; text-align: right; white-space: nowrap;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13.5px;
+}
+.orc-grupo-barra {
+  height: 8px; background: var(--surface-3); border-radius: var(--r-full);
+  overflow: hidden; margin-top: var(--s-3);
+}
+.orc-grupo-barra div {
+  height: 100%; border-radius: var(--r-full); background: var(--income);
+  transition: width 0.3s var(--ease);
+}
+.orc-grupo-barra div.warn { background: var(--warning); }
+.orc-grupo-barra div.over { background: var(--expense); }
+/* grupo de poupança: encher a barra é o objetivo, não o alerta */
+.orc-grupo-barra div.meta { background: var(--primary); }
+.orc-grupo-barra div.ok { background: var(--income); }
+.orc-grupo-rodape {
+  display: flex; justify-content: space-between; gap: var(--s-3);
+  font-size: 12px; color: var(--text-3); margin-top: var(--s-2);
+}
+.orc-grupo-corpo {
+  margin-top: var(--s-4); padding-top: var(--s-2);
+  border-top: 1px solid var(--border-soft);
+}
+
+.orc-linha {
+  display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  padding: var(--s-3) 0; border-bottom: 1px solid var(--border-soft);
+}
+.orc-linha:last-child { border-bottom: none; padding-bottom: 0; }
+.orc-icone { font-size: 16px; flex-shrink: 0; }
+.orc-nome { flex: 1; min-width: 0; font-size: 14px; }
+.orc-valores {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 13px; white-space: nowrap; text-align: right;
+}
+/* o lápis fica apagado até o mouse chegar na linha — discreto, mas alcançável */
+.orc-lapis { opacity: .45; transition: opacity 0.15s var(--ease); }
+.orc-linha:hover .orc-lapis, .orc-lapis:focus-visible { opacity: 1; }
+.orc-editor { display: flex; align-items: center; gap: var(--s-2); }
+.orc-editor input {
+  width: 118px; background: var(--surface-2); border: 1px solid var(--border-focus);
+  border-radius: var(--r-xs); color: var(--text-1); padding: 7px var(--s-3);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px;
+}
+.orc-editor input:focus { outline: none; box-shadow: var(--glow-focus); }
+.orc-editor input::placeholder { color: var(--text-3); font-family: var(--font-body); }
+.orc-trilho {
+  flex-basis: 100%; height: 5px; background: var(--surface-3);
+  border-radius: var(--r-full); overflow: hidden;
+}
+.orc-trilho div {
+  height: 100%; border-radius: var(--r-full); background: var(--primary-deep);
+  transition: width 0.3s var(--ease);
+}
+.orc-trilho div.warn { background: var(--warning); }
+.orc-trilho div.over { background: var(--expense); }
+
+.orc-total {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--s-3); flex-wrap: wrap; font-size: 14px; color: var(--text-2);
+}
+.orc-total-valor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-1); }
+
+@media (max-width: 800px) {
+  .orc-grupo { padding: var(--s-4); }
+  .orc-grupo-nome .card-sub { display: block; margin-left: 0; }
+  /* nome, valor e lápis cabem numa linha só; o nome corta antes de empurrar */
+  .orc-linha { gap: var(--s-2); }
+  .orc-nome { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .orc-valores { font-size: 12px; }
+  .orc-lapis { opacity: 1; }
+  .orc-editor input { width: 96px; }
+}
+
 .budget-row { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) 0; border-bottom: 1px solid var(--border-soft); }
 .budget-row:last-child { border-bottom: none; }
 .budget-row .b-cat { width: 130px; font-size: 14px; color: var(--text-1); flex-shrink: 0; }
