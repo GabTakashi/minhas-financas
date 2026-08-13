@@ -3,17 +3,20 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import PageHead from '@/components/PageHead';
 import ParceladoWizard, { OrigemFixo } from '@/components/ParceladoWizard';
+import TxDias from '@/components/TxDias';
 import TxModal from '@/components/TxModal';
 import TxSection from '@/components/TxSection';
 import { TipoParcelado } from '@/lib/parcelado';
 import { useMonth } from '@/components/Providers';
 import { useMonthRow, useTransactions } from '@/hooks/useFinance';
+import { agruparPorDia } from '@/lib/dias';
 import { filtrarOrdenar, Ordem } from '@/lib/filtros';
 import { fmtBRL } from '@/lib/money';
 import { monthName } from '@/lib/months';
 import { Transaction } from '@/lib/types';
 
 type Aba = 'todos' | 'receita' | 'despesa';
+type Visao = 'dia' | 'tipo';
 
 const ORDENS: { chave: Ordem; rotulo: string }[] = [
   { chave: 'data', rotulo: 'Data' },
@@ -34,7 +37,8 @@ export default function Lancamentos() {
   const [busca, setBusca] = useState('');
   const [aba, setAba] = useState<Aba>('todos');
   const [ordem, setOrdem] = useState<Ordem>('data');
-  const [desc, setDesc] = useState(false);
+  const [desc, setDesc] = useState(true);
+  const [visao, setVisao] = useState<Visao>('dia');
 
   // o "+" da barra inferior chega aqui como ?novo=1 e já abre o modal
   useEffect(() => {
@@ -48,18 +52,23 @@ export default function Lancamentos() {
   if (monthRow.isLoading || txsQ.isLoading) return <p className="empty-row">Carregando…</p>;
 
   const txs = txsQ.data ?? [];
-  const filtrados = filtrarOrdenar(txs, { busca, ordem, desc });
   const buscando = busca.trim().length > 0;
+
+  const mostraReceita = aba === 'todos' || aba === 'receita';
+  const mostraDespesa = aba === 'todos' || aba === 'despesa';
+
+  const filtrados = filtrarOrdenar(txs, { busca, ordem, desc })
+    .filter(t => (t.type === 'entrada' ? mostraReceita : mostraDespesa));
 
   const entradas = filtrados.filter(t => t.type === 'entrada');
   const fixos = filtrados.filter(t => t.type === 'fixo');
   const variaveis = filtrados.filter(t => t.type === 'variavel');
 
-  const mostraReceita = aba === 'todos' || aba === 'receita';
-  const mostraDespesa = aba === 'todos' || aba === 'despesa';
-
   const totalEntradas = entradas.reduce((s, t) => s + Number(t.valor), 0);
   const totalSaidas = [...fixos, ...variaveis].reduce((s, t) => s + Number(t.valor), 0);
+
+  // no extrato por dia, a direção dos dias segue o próprio filtro de data
+  const grupos = agruparPorDia(filtrados, ordem === 'data' ? desc : true);
 
   function abrirNovo() { setEditando(null); setModalAberto(true); }
   function abrirEdicao(t: Transaction) { setEditando(t); setModalAberto(true); }
@@ -104,12 +113,20 @@ export default function Lancamentos() {
                 <button
                   key={o.chave}
                   className={`chip ${ordem === o.chave ? 'on' : ''}`}
-                  onClick={() => { ordem === o.chave ? setDesc(d => !d) : (setOrdem(o.chave), setDesc(false)); }}
+                  onClick={() => { ordem === o.chave ? setDesc(d => !d) : (setOrdem(o.chave), setDesc(true)); }}
                   title={ordem === o.chave ? 'Clique para inverter' : `Ordenar por ${o.rotulo.toLowerCase()}`}
                 >
                   {o.rotulo}{ordem === o.chave ? (desc ? ' ↓' : ' ↑') : ''}
                 </button>
               ))}
+            </div>
+
+            <div className="ordena">
+              <span className="card-sub">Ver:</span>
+              <button className={`chip ${visao === 'dia' ? 'on' : ''}`} onClick={() => setVisao('dia')}
+                title="Agrupar por dia">Por dia</button>
+              <button className={`chip ${visao === 'tipo' ? 'on' : ''}`} onClick={() => setVisao('tipo')}
+                title="Agrupar por entradas, fixos e variáveis">Por tipo</button>
             </div>
           </div>
 
@@ -122,13 +139,19 @@ export default function Lancamentos() {
             </span>
           </div>
 
-          {mostraReceita && (
-            <TxSection title="Entradas" type="entrada" color="income" txs={entradas} aoEditar={abrirEdicao} vazio={vazio} />
-          )}
-          {mostraDespesa && (
+          {visao === 'dia' ? (
+            <TxDias grupos={grupos} aoEditar={abrirEdicao} vazio={vazio} />
+          ) : (
             <>
-              <TxSection title="Custos fixos" type="fixo" color="expense" txs={fixos} aoEditar={abrirEdicao} vazio={vazio} />
-              <TxSection title="Custos variáveis" type="variavel" color="expense" txs={variaveis} aoEditar={abrirEdicao} vazio={vazio} />
+              {mostraReceita && (
+                <TxSection title="Entradas" color="income" txs={entradas} aoEditar={abrirEdicao} vazio={vazio} />
+              )}
+              {mostraDespesa && (
+                <>
+                  <TxSection title="Custos fixos" color="expense" txs={fixos} aoEditar={abrirEdicao} vazio={vazio} />
+                  <TxSection title="Custos variáveis" color="expense" txs={variaveis} aoEditar={abrirEdicao} vazio={vazio} />
+                </>
+              )}
             </>
           )}
 

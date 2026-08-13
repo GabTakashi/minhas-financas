@@ -36,12 +36,20 @@ describe('filtrarOrdenar', () => {
     tx({ descricao: 'Claude', valor: 118, dia_vencimento: null }),
   ];
 
-  it('ordena por dia de vencimento, com "sem dia" no fim', () => {
+  it('ordena por data, com "sem data" no fim', () => {
     expect(filtrarOrdenar(lista).map(t => t.descricao)).toEqual(['Barbeiro', 'Academia', 'Claude']);
   });
 
-  it('mantém "sem dia" no fim mesmo invertendo a ordem', () => {
-    expect(filtrarOrdenar(lista, { desc: true }).map(t => t.descricao)).toEqual(['Claude', 'Academia', 'Barbeiro']);
+  it('mantém "sem data" no fim mesmo invertendo a ordem', () => {
+    expect(filtrarOrdenar(lista, { desc: true }).map(t => t.descricao)).toEqual(['Academia', 'Barbeiro', 'Claude']);
+  });
+
+  it('usa o dia do registro de quem não informou o dia', () => {
+    const comRegistro = [
+      tx({ descricao: 'Pix', dia_vencimento: null, data_registro: '2026-08-20' }),
+      tx({ descricao: 'Barbeiro', dia_vencimento: 5 }),
+    ];
+    expect(filtrarOrdenar(comRegistro).map(t => t.descricao)).toEqual(['Barbeiro', 'Pix']);
   });
 
   it('ordena por valor', () => {

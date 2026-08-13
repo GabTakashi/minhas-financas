@@ -1,3 +1,4 @@
+import { dataDaTx } from './dias';
 import { Transaction } from './types';
 
 export type Ordem = 'data' | 'valor' | 'nome';
@@ -28,9 +29,12 @@ export function filtrarOrdenar(txs: Transaction[], op: OpcoesFiltro = {}): Trans
   return [...lista].sort((a, b) => {
     if (ordem === 'valor') return (Number(a.valor) - Number(b.valor)) * sinal;
     if (ordem === 'nome') return a.descricao.localeCompare(b.descricao, 'pt-BR') * sinal;
-    // data: sem dia de vencimento vai para o fim, independente da direção
-    const da = a.dia_vencimento ?? 99, db = b.dia_vencimento ?? 99;
+    // data: quem não tem data nenhuma vai para o fim, independente da direção
+    const da = dataDaTx(a), db = dataDaTx(b);
+    if (da === null && db === null) return a.descricao.localeCompare(b.descricao, 'pt-BR');
+    if (da === null) return 1;
+    if (db === null) return -1;
     if (da === db) return a.descricao.localeCompare(b.descricao, 'pt-BR');
-    return (da - db) * sinal;
+    return da.localeCompare(db) * sinal;
   });
 }

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { insertTransaction, setTransactionPago, updateTransaction } from '@/lib/actions';
 import { CATEGORIAS, iconeDe } from '@/lib/categories';
+import { dataDaTx, diasDoMes, hojeISO } from '@/lib/dias';
+import { monthName } from '@/lib/months';
 import { TipoParcelado, TIPOS } from '@/lib/parcelado';
 import { Transaction, TxType } from '@/lib/types';
 import { useMonth, useToast } from './Providers';
@@ -24,11 +26,19 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
   const toast = useToast();
 
   const inicial = editando;
+
+  // A data vive dentro do mês aberto: é ele que define onde o lançamento entra.
+  // Sem nada informado, cai no dia de hoje — ou no dia 1 se o mês aberto for outro.
+  const primeiroDia = `${month}-01`;
+  const ultimoDia = `${month}-${String(diasDoMes(month)).padStart(2, '0')}`;
+  const hoje = hojeISO();
+  const dataPadrao = hoje >= primeiroDia && hoje <= ultimoDia ? hoje : primeiroDia;
+
   const [tipo, setTipo] = useState<TxType>(inicial?.type ?? 'variavel');
   const [digitos, setDigitos] = useState(inicial ? String(Math.round(Number(inicial.valor) * 100)) : '');
   const [desc, setDesc] = useState(inicial?.descricao ?? '');
   const [cat, setCat] = useState<string>(inicial?.categoria ?? CATEGORIAS[0]);
-  const [dia, setDia] = useState(inicial?.dia_vencimento ? String(inicial.dia_vencimento) : '');
+  const [data, setData] = useState(inicial ? dataDaTx(inicial) ?? dataPadrao : dataPadrao);
   const [pago, setPago] = useState(inicial?.pago ?? false);
   const [salvando, setSalvando] = useState(false);
 
@@ -52,11 +62,15 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
     e.preventDefault();
     if (!desc.trim()) { toast('Digite uma descrição'); return; }
     if (valor <= 0) { toast('Informe um valor maior que zero'); return; }
+    if (data && (data < primeiroDia || data > ultimoDia)) {
+      toast(`Escolha uma data dentro de ${monthName(month)}`);
+      return;
+    }
 
     const linha = {
       month, type: tipo, descricao: desc.trim(), valor,
       categoria: isEntrada ? null : cat,
-      dia_vencimento: !isEntrada && dia ? Number(dia) : null,
+      dia_vencimento: data ? Number(data.slice(8, 10)) : null,
     };
     setSalvando(true);
     try {
@@ -151,7 +165,7 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
                 <div className="tipo-cards">
                   {TIPOS.map(t => (
                     <button type="button" key={t.chave} className="tipo-card"
-                      onClick={() => aoAbrirParcelado(t.chave, desc, valor, cat, dia ? Number(dia) : null)}>
+                      onClick={() => aoAbrirParcelado(t.chave, desc, valor, cat, data ? Number(data.slice(8, 10)) : null)}>
                       <span className="tipo-icone">{t.icone}</span>
                       <strong>{t.nome}</strong>
                       <span className="card-sub">{t.sub}</span>
@@ -172,14 +186,20 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
                 {CATEGORIAS.map(c => <option key={c} value={c}>{iconeDe(c)}  {c}</option>)}
               </select>
             </label>
-
-            <label className="campo">
-              <span>Dia do vencimento <span className="card-sub">(opcional)</span></span>
-              <input type="number" min={1} max={31} placeholder="ex.: 10"
-                value={dia} onChange={e => setDia(e.target.value)} />
-            </label>
           </>
         )}
+
+        <label className="campo">
+          <span>Data</span>
+          <input type="date" value={data} min={primeiroDia} max={ultimoDia}
+            onChange={e => setData(e.target.value)} />
+          <span className="card-sub campo-dica">
+            {data === hoje
+              ? 'Hoje. Mude se o lançamento for de outro dia.'
+              : `Dentro de ${monthName(month)}.`}
+            {tipo === 'fixo' && ' Para custos fixos, é também o dia do vencimento.'}
+          </span>
+        </label>
 
         {editando && (
           <label className="campo-check">
