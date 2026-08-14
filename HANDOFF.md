@@ -1,7 +1,7 @@
 # Handoff — Minhas Finanças
 
-**Gerado em:** 12/08/2026
-**Foco da próxima sessão:** terminar as 2 telas pendentes (Transações por dia, Parcelados no estilo novo).
+**Gerado em:** 14/08/2026
+**Último commit:** `d6488ed refactor: nota 50/30/20 punitiva, fim do Cartao e limpeza de UI`
 
 ---
 
@@ -21,16 +21,30 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 **Stack:** Next.js 15 (App Router) + TypeScript + Postgres (Neon serverless driver) + NextAuth
 (login só por identificador, sem senha) + React Query. Idioma de todo o produto: **pt-BR**.
 
+**Não há Tailwind nem biblioteca de gráficos.** O estilo é um `app/globals.css` único com classes
+semânticas em português, e os cinco gráficos são SVG escrito à mão. Isso é deliberado — veja a
+seção 5.
+
 ---
 
 ## 2. Estado atual
 
-- **Branch:** `main`, working tree limpo, tudo commitado
-- **Último commit:** `161e034 feat: faixa de receita no painel e aba Metas dedicada`
-- **117 testes** passando (`npm test`), typecheck limpo (`npm run typecheck`)
-- **~6.100 linhas** em `app/`, `components/`, `lib/`, `hooks/`
-- Todo o histórico do que foi construído está nos **14 commits** — use `git log --oneline` e
-  `git show <hash>` em vez de reler o código inteiro.
+- **Branch:** `main`, working tree limpo, tudo commitado e publicado
+- **138 testes** passando (`npm test`), typecheck e build limpos
+- **~5.700 linhas** em `app/`, `components/`, `lib/`, `hooks/`
+- O histórico dos **19 commits** é a documentação viva do projeto: as mensagens registram o
+  *porquê* das decisões não óbvias. Use `git log --oneline` e `git show <hash>` em vez de reler
+  o código inteiro.
+
+### O que a última sessão (14/08) entregou
+
+| Commit | O quê |
+|---|---|
+| `065e3dd` | Parcelados: card RESTANTE, gráfico de projeção da dívida, Pagar parcela / Quitar parcelado |
+| `9d6f197` | Extrato agrupado por dia + data explícita no lançamento |
+| `eed6c24` | Nota pela regra 50/30/20 + orçamento em grupos expansíveis |
+| `b31168e` | Rosca da distribuição de gastos no topo do Orçamento |
+| `d6488ed` | Nota punitiva (2,5×), remoção do Cartão, limpeza de UI e acessibilidade |
 
 ---
 
@@ -39,15 +53,14 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 ### Lógica de negócio pura (`lib/`) — tem teste, mexa aqui primeiro
 | Arquivo | Responsabilidade |
 |---|---|
-| `score.ts` | IPF (0–100), 4 pilares de 25 pts |
+| `score.ts` | IPF (0–100) **pela regra 50/30/20** — veja a seção 4 |
 | `resumo.ts` | `resumoDoMes`, `guardadoNoMes` — **poupança = saldo + Investimentos/Reserva** |
-| `parcelado.ts` | Parcelados: valor da parcela, vigência, calendário, saldo |
-| `parcelados.ts` | Progresso das compras parceladas **do cartão** (fonte diferente) |
+| `totals.ts` | Totais do mês, realizado vs previsto, gastos por categoria, distribuição por grupo |
+| `dias.ts` | Data do lançamento e agrupamento do extrato por dia |
+| `parcelado.ts` | Parcelados: valor da parcela, vigência, calendário, saldo, projeção da dívida |
 | `metas.ts` | Série de metas, análise de padrão, status do mês |
 | `streak.ts` | Constância: dias registrados, selos |
 | `filtros.ts` | Busca e ordenação de lançamentos |
-| `invoice.ts` | Fatura do cartão, parcelas, limite utilizado |
-| `totals.ts` | Totais do mês, **realizado vs previsto**, gastos por categoria |
 | `newMonth.ts` | Criação do mês novo (copia fixos, recria parcelados) |
 | `money.ts` `months.ts` `categories.ts` `types.ts` | Utilitários |
 
@@ -58,28 +71,25 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 - `hooks/useFinance.ts` — hooks React Query que embrulham as actions.
 
 ### Telas (`app/(app)/`)
-`page.tsx` (painel) · `lancamentos/` · `cartao/` · `parcelados/` · `metas/` · `orcamento/` ·
+`page.tsx` (painel) · `lancamentos/` · `parcelados/` · `metas/` · `orcamento/` ·
 `desempenho/` · `config/`
 
 ### Componentes-chave (`components/`)
-`Sidebar.tsx` (lateral no desktop + **barra de abas no celular** + folha "Mais") ·
-`TxModal.tsx` (modal de lançamento) · `ParceladoWizard.tsx` (assistente 4 etapas) ·
-`FaixaReceita.tsx` · `ScorePainel.tsx` · `Constancia.tsx` · `EvolutionChart.tsx` ·
-`PullToRefresh.tsx` · `Logo.tsx`
-
-### Estilo
-- **`app/globals.css`** — arquivo único, ~900 linhas. Tokens no `:root` (paleta FINANCIA:
-  Ink Black `#080910`, Black Denim `#1C1C2B`, lavanda `#C0B4FE`).
-- Fontes: **Urbanist** (interface) + **JetBrains Mono** (todo valor em R$, com `tabular-nums`).
-- Não existe Tailwind nem CSS-in-JS. Classes semânticas em português.
+`Sidebar.tsx` (lateral no desktop + barra de abas no celular + folha "Mais") ·
+`TxModal.tsx` · `TxLinha.tsx` (linha compartilhada) · `TxDias.tsx` (extrato por dia) ·
+`TxSection.tsx` (extrato por tipo) · `ParceladoWizard.tsx` · `BudgetGroups.tsx` (accordion) ·
+`DonutOrcamento.tsx` · `ProjecaoDivida.tsx` · `EvolutionChart.tsx` · `ScorePainel.tsx` ·
+`FaixaReceita.tsx` · `Constancia.tsx` · `PullToRefresh.tsx` · `Logo.tsx`
 
 ### Banco
 - **`db/schema.sql`** — schema completo e comentado.
 - Tabelas: `users` (tem `meta_pct`), `months` (tem `meta`), `transactions` (tem `parcelado_id`),
-  `cards`, `card_purchases`, `card_invoice_payments`, `budgets`, `budget_groups`,
-  `parcelados`, `telegram_pending`.
+  `budgets`, `budget_groups`, `parcelados`, `telegram_pending`.
+- **Ainda existem** `cards`, `card_purchases` e `card_invoice_payments`, **vazias**. A feature de
+  Cartão foi removida do app em `d6488ed`, mas as tabelas ficaram de propósito (e `exportAll`
+  continua exportando as três) como rede de segurança. Ninguém as lê hoje.
 - **Atenção:** o schema foi alterado por `ALTER TABLE` direto no banco em várias sessões.
-  `schema.sql` foi mantido em dia, mas ele **não é idempotente** — serve para instalar do zero.
+  `schema.sql` foi mantido em dia, mas **não é idempotente** — serve para instalar do zero.
 
 ### Scripts
 - `scripts/apply-schema.mjs` — aplica o schema num banco vazio
@@ -87,13 +97,123 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 
 ---
 
-## 4. Backups (o que está salvo)
+## 4. Como a nota (IPF) funciona hoje
+
+Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
+
+- A nota **sai dos grupos de orçamento do próprio usuário**, não de pesos escritos no código. Se
+  ele mudar Essenciais para 60%, o pilar passa a valer 60 pontos.
+- Grupo de gasto é **teto**, grupo de poupança é **meta**. Dentro da regra, nota cheia.
+- Fora da regra, **cada ponto percentual de desvio custa 2,5 pontos** (`PENALIDADE`), com chão
+  em 0. Efeito: Essenciais zera aos 70% da renda, Não essenciais aos 42%, e o pilar de poupança
+  zera guardando 12% ou menos.
+- Quem é "meta" **não vem do nome do grupo**, e sim de ele conter só categorias de
+  `CATEGORIAS_POUPANCA` — continua funcionando se o usuário renomear o grupo.
+- Faixas: 90–100 Excelente · 75–89 Muito Bom · 50–74 Atenção · 0–49 Crítico.
+  `corDaFaixa()` em `ScorePainel.tsx` segue os mesmos cortes — **mude os dois juntos**.
+- Sem grupos ou sem receita, `pronto: false` e o card chama para configurar, em vez de mostrar
+  um zero que puniria quem só não configurou ainda.
+- **Toda categoria precisa estar num grupo**, senão a regra não fecha em 100% dos gastos. O
+  editor não oferece mais "Sem grupo"; se ainda houver categoria órfã com gasto, a tela de
+  Orçamento mostra um aviso nomeando-a — nunca deixe esse dinheiro sumir em silêncio.
+
+---
+
+## 5. Decisões de projeto que NÃO devem ser desfeitas
+
+1. **Poupança inclui o que foi separado.** Gastos em `Investimentos` e `Reserva de Emergência`
+   contam como economia, não como consumo (`CATEGORIAS_POUPANCA` em `lib/categories.ts`). Sem isso
+   o app penaliza quem poupa — foi um bug real, já corrigido.
+2. **Realizado vs Previsto.** Cards do painel mostram o realizado grande e o previsto embaixo.
+3. **Parcelado é a fonte da verdade.** Um parcelado gera lançamento fixo em cada mês vigente
+   (ligado por `transactions.parcelado_id`). Editar propaga; sair de vigência remove o pendente;
+   `newMonth.ts` recria a partir do parcelado, **não** copia o fixo antigo.
+4. **Excluir parcelado preserva lançamentos já pagos** (histórico real); só remove pendentes.
+5. **Quitação antecipada lança despesa `variavel`, não `fixo`** — como fixo, o `newMonth.ts`
+   copiaria a quitação para todo mês seguinte.
+6. **Nos parcelados, quem manda sobre "parcela paga" é `parcelas_pagas`**, não o status do
+   lançamento: é o contador que define o saldo. Por isso um parcelado atrasado ainda oferece o
+   botão "Pagar parcela", que serve justamente para reconciliar os dois.
+7. **A data do lançamento é `month` + `dia_vencimento`**, sem coluna nova no banco. Quem não
+   informou dia usa o dia em que registrou (`data_registro`, vindo de `created_at` no fuso de SP).
+   O seletor é limitado ao mês aberto — fora dele, o lançamento iria para um mês que talvez nem
+   tenha sido iniciado.
+8. **Nada de biblioteca de gráficos.** Recharts custaria ~100 KB gzipped no First Load, que hoje
+   é 102 KB inteiro. Os cinco gráficos são SVG à mão, seguindo o mesmo padrão.
+9. **Cor de série segue a entidade, nunca o estado.** Nas barras de orçamento o verde significa
+   "dentro do teto" e viraria vermelho ao estourar; na rosca a cor é fixa por grupo
+   (`--serie-1..4`), senão as fatias trocariam de cor conforme o mês.
+10. **Paletas de gráfico são validadas, não escolhidas a olho.** Rode
+    `scripts/validate_palette.js` da skill `dataviz`. O laranja `--serie-2` é mais quente que
+    `--warning` porque o âmbar dava só ΔE 6.5 contra o verde em protanopia (piso é 8).
+11. **`--text-3` é `#8B8FA8`** porque o antigo `#6E7191` dava 3.95:1 sobre o card, abaixo do
+    mínimo AA de 4.5:1. Não escureça de volta.
+
+---
+
+## 6. Pegadinhas conhecidas
+
+- **NUNCA rode `npm run build` com o dev server no ar.** O build sobrescreve o `.next/` e o dev
+  passa a responder 500 em tudo (`Cannot find module './xxx.js'`, `ENOENT @auth.js`). Isso
+  aconteceu **três vezes** em 14/08. O certo: pare o dev, rode o build, apague o `.next/`, suba o
+  dev de novo. Vale também para apagar o `.next/` — só com o servidor parado.
+- **Deploy da Vercel falha com "Not authorized" de forma intermitente.** Rode
+  `npx vercel deploy --prod --yes` de novo — funciona na segunda.
+- **Não há identidade git configurada globalmente.** Já está setada localmente neste repo como
+  `Gabriel <gabrieltgyamashita@gmail.com>`; se aparecer "Author identity unknown", é isso.
+- **Env vars da Vercel no PowerShell:** use Git Bash com `printf '%s' "$v" | npx vercel env add ...`,
+  senão um `\r` é anexado e quebra o build.
+- **Testar no navegador exige login**, e o login do usuário **funciona como senha** — não o
+  digite. Peça para ele entrar na Browser pane e siga daí.
+- **A Browser pane atrasa o frame:** screenshots logo após um clique mostram o estado anterior.
+  Confirme pelo DOM (`javascript_tool`) antes de concluir que algo não funcionou.
+- **`npm test -- --run <arquivo>`** roda um teste só; `npm test` roda tudo.
+- **Numeric do Postgres** chega como string via driver — os selects usam `::float`; mantenha o
+  padrão em queries novas.
+
+---
+
+## 7. O que falta / próximos passos
+
+Não há pendência funcional aberta — as 4 telas pedidas pelo usuário foram entregues e todas as
+mudanças estão em produção. Candidatos naturais:
+
+- **`simplify`** — `app/globals.css` passou de 1.100 linhas e `lib/actions.ts` cresceu bastante.
+  A remoção do Cartão deixou espaço para uma passada de limpeza.
+- **Ordem dos grupos na rosca vs. accordion** — hoje as duas listas seguem `budget_groups.ordem`,
+  então as cores batem. Se algum dia a ordem divergir, as cores divergem junto.
+- **Faixa de receita** (`FaixaReceita.tsx`) hoje é só a barra, entre os cards do mês e a nota. O
+  bloco de métricas do topo foi removido a pedido do usuário — não o traga de volta sem pedir.
+- **Meses futuros:** o app depende de o mês ser "iniciado" para aparecer. O cron em
+  `app/api/cron/route.ts` faz isso automaticamente se `CRON_SECRET` estiver configurado na Vercel.
+
+---
+
+## 8. Como validar antes de entregar
+
+```bash
+npm run typecheck && npm test && npm run build
+```
+
+Depois teste no navegador com dados reais (`preview_start` → `financas-dev`, **com o build já
+encerrado**), em **1500px e 375px**, conferindo estouro horizontal:
+```js
+document.documentElement.scrollWidth > document.documentElement.clientWidth
+```
+
+**Se criar dado de teste no banco, apague depois** — é o banco de produção do usuário, em uso real.
+Para diagnóstico, um script `.mjs` lendo `DATABASE_URL` do `.env.local` funciona bem, mas rode-o
+**de dentro da pasta do projeto** (senão o Node não acha `@neondatabase/serverless`).
+
+---
+
+## 9. Backups (o que está salvo)
 
 Em `backups/` (fora do git, por conter dados pessoais — veja `.gitignore`):
 
 - `backup-2026-08-03T16-49-33-222Z.json`
 - `backup-2026-08-04T16-13-07-844Z.json`
-- `backup-2026-08-12T12-42-03-151Z.json` ← **mais recente**: 2 usuários, 33 lançamentos
+- `backup-2026-08-12T12-42-03-151Z.json` ← **mais recente**
 
 Para gerar outro:
 ```bash
@@ -104,95 +224,22 @@ O app também exporta backup pela interface, em **Ajustes → Exportar backup**.
 
 ---
 
-## 5. Decisões de projeto que NÃO devem ser desfeitas
-
-1. **Poupança inclui o que foi separado.** Gastos em `Investimentos` e `Reserva de Emergência`
-   contam como economia, não como consumo (`CATEGORIAS_POUPANCA` em `lib/resumo.ts`). Sem isso o
-   app penaliza quem poupa — foi um bug real, já corrigido.
-2. **Realizado vs Previsto.** Cards do painel mostram o realizado grande e o previsto embaixo.
-   `monthTotals` = previsto; `monthTotalsRealizado` = só pago/recebido.
-3. **Parcelado é a fonte da verdade.** Um parcelado gera lançamento fixo em cada mês vigente
-   (ligado por `transactions.parcelado_id`). Editar propaga; sair de vigência remove o pendente;
-   `newMonth.ts` recria a partir do parcelado, **não** copia o fixo antigo.
-4. **Paleta dos gráficos validada para daltonismo** (`#3DD6A0` / `#E04B6E` / `#C0B4FE`,
-   ΔE 14.5 deutan). Se trocar, revalide com o validador da skill `dataviz`.
-5. **Excluir parcelado preserva lançamentos já pagos** (histórico real); só remove pendentes.
-
----
-
-## 6. Pegadinhas conhecidas
-
-- **Deploy da Vercel falha com "Not authorized" de forma intermitente.** Simplesmente rode
-  `npx vercel deploy --prod --yes` de novo — funciona na segunda.
-- **Env vars da Vercel no PowerShell:** use Git Bash com `printf '%s' "$v" | npx vercel env add ...`,
-  senão um `\r` é anexado e quebra o build.
-- **Testar no navegador:** a Browser pane às vezes não compõe frames — screenshots falham e
-  **transições CSS não avançam** (valores computados ficam no estado inicial). Para medir estado
-  final, injete `* { transition: none !important }` antes de ler.
-- **`input.blur()` não dispara o `onBlur` do React** nessa condição. Prefira validar a lógica pelo
-  banco ou por eventos que o React delega (`mouseover`, `focusout` real).
-- **Sempre rode `npm run build`** quando mexer com `useSearchParams` — só ele pega erro de
-  pré-renderização.
-
----
-
-## 7. O que falta fazer
-
-O usuário mandou prints do app **TRIVY** como referência e pediu 4 telas. **2 foram entregues**
-(faixa de receita no painel; aba Metas). Faltam:
-
-### a) Transações agrupadas por dia
-Hoje `app/(app)/lancamentos/page.tsx` agrupa por tipo (Entradas / Fixos / Variáveis).
-O usuário quer ver **em que dia** cada gasto foi feito, com subtotal por dia.
-- Os dados permitem: use `dia_vencimento` (o usuário preenche com o dia do gasto).
-  Lançamentos sem dia vão para um grupo "sem data".
-- **Não há coluna de data completa** em `transactions` — só `month` + `dia_vencimento` + `created_at`.
-- Ele disse que pode ser **na própria aba de Lançamentos** (ex.: um toggle "por tipo / por dia").
-
-### b) Parcelados no estilo do TRIVY
-`app/(app)/parcelados/page.tsx` já tem os dados; falta a apresentação:
-- Card grande **RESTANTE** + linha de métricas (impacto mensal, comprometimento da renda, ativos)
-- **Gráfico de projeção** da dívida caindo mês a mês até quitar (dá para derivar de
-  `lib/parcelado.ts` → `calendario()` + `saldoRestante()`)
-- Botões **"Pagar Parcela"** e **"Quitar Parcelado"** (hoje só existe Editar/Excluir).
-  "Pagar Parcela" = incrementar `parcelas_pagas` e marcar o lançamento do mês como pago.
-
-**Ordem sugerida:** (b) primeiro — tem mais coisa nova e o usuário demonstrou mais interesse.
-
----
-
-## 8. Como validar antes de entregar
-
-```bash
-npm run typecheck && npm test && npm run build
-```
-
-Depois teste no navegador com dados reais (`preview_start` → `financas-dev`), em **1500px e 375px**,
-conferindo estouro horizontal:
-```js
-document.documentElement.scrollWidth > document.documentElement.clientWidth
-```
-
-**Se criar dado de teste no banco, apague depois** — é o banco de produção do usuário, em uso real.
-
----
-
-## 9. Skills sugeridas
+## 10. Skills sugeridas
 
 | Skill | Quando |
 |---|---|
-| **`dataviz`** | **Obrigatória** antes de escrever qualquer gráfico ou escolher cor de série. O gráfico de projeção dos Parcelados cai nisso. Rode `scripts/validate_palette.js` — não confie no olho. |
-| `handoff` | Ao fim da próxima sessão, para passar adiante. |
-| `simplify` | Depois de fechar as duas telas — `globals.css` e `lib/actions.ts` cresceram bastante. |
+| **`dataviz`** | **Obrigatória** antes de escrever qualquer gráfico ou escolher cor de série. Rode `scripts/validate_palette.js` — não confie no olho. |
+| `simplify` | Primeiro item da seção 7. |
 | `code-review` / `security-review` | Antes de mudanças em `lib/actions.ts` (é onde mora o escopo por usuário). |
+| `handoff` | Ao fim da próxima sessão, para passar adiante. |
 
 ---
 
-## 10. Segredos — NÃO estão neste documento
+## 11. Segredos — NÃO estão neste documento
 
 Ficam apenas em `.env.local` (fora do git) e nas env vars da Vercel:
 `DATABASE_URL`, `AUTH_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`,
-`TELEGRAM_CHAT_ID`, `TELEGRAM_USER_LOGIN`, `VERCEL_OIDC_TOKEN`.
+`TELEGRAM_CHAT_ID`, `TELEGRAM_USER_LOGIN`, `CRON_SECRET`, `VERCEL_OIDC_TOKEN`.
 
 ⚠️ **O login do app funciona como senha** (autenticação só por identificador, sem senha).
 Ele está no `.env.local` e no banco — **nunca** o escreva em documento, commit ou log.
