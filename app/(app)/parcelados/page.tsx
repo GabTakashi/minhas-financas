@@ -6,7 +6,7 @@ import PageHead from '@/components/PageHead';
 import ParceladoWizard from '@/components/ParceladoWizard';
 import ProjecaoDivida from '@/components/ProjecaoDivida';
 import { useMonth, useToast } from '@/components/Providers';
-import { useCard, usePaidInvoices, useParcelados, usePurchases, useTransactions } from '@/hooks/useFinance';
+import { useParcelados, useTransactions } from '@/hooks/useFinance';
 import { deleteParcelado, pagarParcela, quitarParcelado } from '@/lib/actions';
 import { iconeDe } from '@/lib/categories';
 import { fmtBRL } from '@/lib/money';
@@ -14,7 +14,6 @@ import { monthName, shortMonth } from '@/lib/months';
 import {
   mesFinal, Parcelado, parcelaDoMes, projecaoDivida, quitado, saldoRestante, semPrazo, TIPOS, vigenteEm,
 } from '@/lib/parcelado';
-import { ordenarParcelados, progressoParcelados } from '@/lib/parcelados';
 
 /** '2027-10' → 'out/27' — cabe numa métrica sem quebrar linha. */
 const mesCurto = (k: string) => `${shortMonth(k)}/${k.slice(2, 4)}`;
@@ -23,9 +22,6 @@ export default function Parcelados() {
   const { month } = useMonth();
   const qc = useQueryClient();
   const toast = useToast();
-  const cardQ = useCard();
-  const purchasesQ = usePurchases();
-  const paidQ = usePaidInvoices();
   const txsQ = useTransactions(month);
   const parceladosQ = useParcelados();
 
@@ -36,20 +32,14 @@ export default function Parcelados() {
   const [lancarQuitacao, setLancarQuitacao] = useState(true);
   const [quitandoAgora, setQuitandoAgora] = useState(false);
 
-  if ([cardQ, purchasesQ, paidQ, txsQ, parceladosQ].some(q => q.isLoading)) {
+  if ([txsQ, parceladosQ].some(q => q.isLoading)) {
     return <p className="empty-row">Carregando…</p>;
   }
 
-  const card = cardQ.data ?? null;
-  const pagos = (paidQ.data ?? []).filter(p => p.pago).map(p => p.month);
   const lista = parceladosQ.data ?? [];
   const ativos = lista.filter(p => !quitado(p));
   const encerrados = lista.filter(p => quitado(p));
   const txs = txsQ.data ?? [];
-
-  const comprasCartao = card
-    ? ordenarParcelados(progressoParcelados(purchasesQ.data ?? [], card, pagos, month))
-    : [];
 
   const fixosSoltos = txs.filter(t => t.type === 'fixo' && !t.parcelado_id);
   const totalFixosSoltos = fixosSoltos.reduce((s, t) => s + Number(t.valor), 0);
@@ -279,43 +269,6 @@ export default function Parcelados() {
           );
         })}
       </div>
-
-      {/* ── Compras parceladas no cartão (fatura) ── */}
-      {comprasCartao.length > 0 && (
-        <div className="section">
-          <div className="section-header">
-            <h2>Compras parceladas no cartão</h2>
-            <Link href="/cartao" className="hint-link">Ver fatura</Link>
-          </div>
-          <p className="card-sub" style={{ marginBottom: 'var(--s-3)' }}>
-            Estas vêm das compras do cartão e entram na fatura, não como custo fixo.
-          </p>
-          {comprasCartao.map(p => (
-            <div className={`card parcelado ${p.quitado ? 'quitado' : ''}`} key={p.id}>
-              <div className="parcelado-topo">
-                <span className="tx-icone">{iconeDe(p.categoria)}</span>
-                <div className="parcelado-nome">
-                  <strong>{p.descricao}</strong>
-                  <span className="card-sub">{p.categoria} · {fmtBRL(p.valorParcela)} × {p.parcelas}</span>
-                </div>
-                <div className="parcelado-valores">
-                  <span className="tx-valor" style={{ color: p.quitado ? 'var(--income)' : 'var(--expense)' }}>
-                    {p.quitado ? 'quitado' : fmtBRL(p.restante)}
-                  </span>
-                  <span className="card-sub">{p.quitado ? 'concluído' : 'ainda falta'}</span>
-                </div>
-              </div>
-              <div className="parcelado-barra">
-                <div style={{ width: `${(p.pagas / p.parcelas) * 100}%`, background: p.quitado ? 'var(--income)' : 'var(--primary)' }} />
-              </div>
-              <div className="parcelado-rodape">
-                <span>{p.pagas} de {p.parcelas} pagas</span>
-                <span>{monthName(p.primeiroMes)} → {monthName(p.ultimoMes)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ── Fixos lançados à mão ── */}
       <div className="section">

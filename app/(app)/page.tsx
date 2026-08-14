@@ -9,11 +9,10 @@ import Constancia from '@/components/Constancia';
 import FaixaReceita from '@/components/FaixaReceita';
 import ScorePainel from '@/components/ScorePainel';
 import {
-  useAllMonths, useAllTransactions, useBudgetGroups, useBudgets, useCard, useDiasRegistrados,
-  useMonthRow, usePaidInvoices, usePurchases, useTransactions,
+  useAllMonths, useAllTransactions, useBudgetGroups, useBudgets, useDiasRegistrados,
+  useMonthRow, useTransactions,
 } from '@/hooks/useFinance';
 import { iniciarMes as iniciarMesAction } from '@/lib/actions';
-import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL } from '@/lib/money';
 import { monthName } from '@/lib/months';
 import { CATEGORIAS_POUPANCA, guardadoNoMes, resumoDoMes } from '@/lib/resumo';
@@ -33,26 +32,18 @@ export default function Home() {
   const txsQ = useTransactions(month);
   const allMonths = useAllMonths();
   const allTxs = useAllTransactions();
-  const cardQ = useCard();
-  const purchasesQ = usePurchases();
-  const paidQ = usePaidInvoices();
   const budgetsQ = useBudgets(month);
   const groupsQ = useBudgetGroups();
   const diasQ = useDiasRegistrados();
   const [modo, setModo] = useState<'previsto' | 'realizado'>('previsto');
 
-  const queries = [monthRow, txsQ, allMonths, allTxs, cardQ, purchasesQ, paidQ, budgetsQ, groupsQ, diasQ];
+  const queries = [monthRow, txsQ, allMonths, allTxs, budgetsQ, groupsQ, diasQ];
   if (queries.some(x => x.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(x => x.isError)) return <p className="empty-row">Erro ao carregar dados — verifique sua conexão e recarregue.</p>;
 
-  const card = cardQ.data ?? null;
-  const purchases = purchasesQ.data ?? [];
-  const paidMonths = (paidQ.data ?? []).filter(p => p.pago).map(p => p.month);
   const txs = txsQ.data ?? [];
-  const fatura = card ? faturaDoMes(purchases, card, month) : { items: [], total: 0 };
-  const faturaPaga = paidMonths.includes(month);
-  const tPrevisto = monthTotals(txs, fatura.total);
-  const tRealizado = monthTotalsRealizado(txs, fatura.total, faturaPaga);
+  const tPrevisto = monthTotals(txs);
+  const tRealizado = monthTotalsRealizado(txs);
   const meta = Number(monthRow.data?.meta ?? 0);
 
   async function iniciarMes() {
@@ -77,34 +68,27 @@ export default function Home() {
     );
   }
 
-  // pendentes: lançamentos não pagos + fatura não paga
-  const pend: { desc: string; tipo: string; dia: number | null; valor: number }[] = [
-    ...txs.filter(x => x.type !== 'entrada' && !x.pago)
-      .map(x => ({ desc: x.descricao, tipo: x.type === 'fixo' ? 'Fixo' : 'Variável', dia: x.dia_vencimento, valor: Number(x.valor) })),
-    ...(card && fatura.total > 0 && !faturaPaga
-      ? [{ desc: `Fatura ${card.nome}`, tipo: 'Cartão', dia: card.dia_vencimento as number | null, valor: fatura.total }] : []),
-  ].sort((a, b) => (a.dia || 99) - (b.dia || 99));
+  const pend = txs
+    .filter(x => x.type !== 'entrada' && !x.pago)
+    .map(x => ({ desc: x.descricao, tipo: x.type === 'fixo' ? 'Fixo' : 'Variável', dia: x.dia_vencimento, valor: Number(x.valor) }))
+    .sort((a, b) => (a.dia || 99) - (b.dia || 99));
 
-  const gastos = modo === 'previsto'
-    ? gastosPorCategoria(txs, fatura.items)
-    : gastosPorCategoriaRealizado(txs, fatura.items, faturaPaga);
+  const gastos = modo === 'previsto' ? gastosPorCategoria(txs) : gastosPorCategoriaRealizado(txs);
   const cats = Object.entries(gastos).sort((a, b) => b[1] - a[1]);
+  // o maior gasto ocupa a barra inteira e os demais escalam contra ele
   const maxCat = cats.length ? cats[0][1] : 1;
 
   const evoKeys = (allMonths.data ?? []).map(m => m.month).filter(k => k <= month).slice(-12);
   const evo = evoKeys.map(k => {
-    const f = card ? faturaDoMes(purchases, card, k).total : 0;
     const txsDoMes = (allTxs.data ?? []).filter(x => x.month === k);
-    const tt = modo === 'previsto'
-      ? monthTotals(txsDoMes, f)
-      : monthTotalsRealizado(txsDoMes, f, paidMonths.includes(k));
+    const tt = modo === 'previsto' ? monthTotals(txsDoMes) : monthTotalsRealizado(txsDoMes);
     return { key: k, entradas: tt.entradas, saidas: tt.saidas, saldo: tt.saldo };
   });
 
   // Nota do mês pela regra 50/30/20 — sempre no previsto, para não oscilar
   // quando o usuário alterna entre Previsto e Realizado.
-  const resumo = resumoDoMes(txs, purchases, card, month);
-  const ipf = calcularIpf(tPrevisto.entradas, groupsQ.data ?? [], gastosPorCategoria(txs, fatura.items));
+  const resumo = resumoDoMes(txs, month);
+  const ipf = calcularIpf(tPrevisto.entradas, groupsQ.data ?? [], gastosPorCategoria(txs));
 
   // economia do mês = o que você separou (Investimentos/Reserva) + o que sobrou
   const guardado = guardadoNoMes(txs);
@@ -122,7 +106,7 @@ export default function Home() {
         <div className="card highlight">
           <div className="label">Saldo do mês</div>
           <div className="value">{fmtBRL(tRealizado.saldo)}</div>
-          <div className="sub">previsto: {fmtBRL(tPrevisto.saldo)} · entradas − saídas (com fatura)</div>
+          <div className="sub">previsto: {fmtBRL(tPrevisto.saldo)} · entradas − saídas</div>
         </div>
         <div className="card">
           <div className="label">Entradas</div>
@@ -160,7 +144,7 @@ export default function Home() {
       <FaixaReceita receita={tPrevisto.entradas} despesas={tPrevisto.saidas} />
 
       <div className="painel-duplo">
-        <ScorePainel ipf={ipf} />
+        <ScorePainel ipf={ipf} compacto />
         <Constancia datas={diasQ.data ?? []} month={month} />
       </div>
 
@@ -219,12 +203,11 @@ export default function Home() {
           ([
             ['Gastos fixos', tPrevisto.fixos, 'var(--primary-deep)'],
             ['Gastos variáveis', tPrevisto.variaveis, 'var(--accent)'],
-            ...(tPrevisto.fatura > 0 ? [['Fatura do cartão', tPrevisto.fatura, 'var(--warning)'] as [string, number, string]] : []),
           ] as [string, number, string][]).map(([nome, valor, cor]) => (
             <div className="cat-row wide" key={nome}>
               <span className="cat-name">{nome}</span>
               <div className="cat-bar-wrap" style={{ height: 12 }}>
-                <div className="cat-bar" style={{ width: `${(valor / Math.max(1, tPrevisto.fixos, tPrevisto.variaveis, tPrevisto.fatura)) * 100}%`, background: cor }} />
+                <div className="cat-bar" style={{ width: `${(valor / Math.max(1, tPrevisto.fixos, tPrevisto.variaveis)) * 100}%`, background: cor }} />
               </div>
               <span className="cat-val">
                 {fmtBRL(valor)} ({Math.round((valor / tPrevisto.saidas) * 100)}%)
@@ -238,7 +221,16 @@ export default function Home() {
         <h3>Contas pendentes do mês</h3>
         <div className="card-sub">ordenadas pelo dia de vencimento</div>
         {pend.length === 0 ? (
-          <div className="empty-row" style={{ padding: '8px 0' }}>Nenhuma conta pendente — tudo pago ✓</div>
+          <div className="celebra">
+            <span className="celebra-selo" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.5 12.5 10 18 20 6.5" />
+              </svg>
+            </span>
+            <strong>Tudo pago neste mês</strong>
+            <span className="card-sub">Nenhuma conta em aberto — siga assim 🎉</span>
+          </div>
         ) : (
           <table>
             <thead>
@@ -252,7 +244,7 @@ export default function Home() {
             <tbody>
               {pend.map((p, i) => (
                 <tr key={i}>
-                  <td style={{ paddingLeft: 0 }}>{p.tipo === 'Cartão' ? <Link href="/cartao" className="hint-link" style={{ textDecoration: 'none' }}>{p.desc}</Link> : p.desc}</td>
+                  <td style={{ paddingLeft: 0 }}>{p.desc}</td>
                   <td className="hide-mobile"><span className="badge">{p.tipo}</span></td>
                   <td className="center">{p.dia ? `dia ${p.dia}` : '—'}</td>
                   <td className="num" style={{ paddingRight: 0 }}>{fmtBRL(p.valor)}</td>

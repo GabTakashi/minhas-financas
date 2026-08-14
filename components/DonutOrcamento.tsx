@@ -5,12 +5,10 @@ import { FatiaGrupo } from '@/lib/totals';
 
 /**
  * Cor por grupo, em ordem fixa — a cor segue o grupo, não o quanto ele gastou.
- * O bolo "fora dos grupos" é sempre o cinza neutro; um 5º grupo em diante cai
- * nele também, em vez de inventar tom novo.
+ * Do 5º grupo em diante cai no cinza neutro, em vez de inventar tom novo.
  */
 const SERIES = ['var(--serie-1)', 'var(--serie-2)', 'var(--serie-3)', 'var(--serie-4)'];
-export const corDaFatia = (f: FatiaGrupo, i: number) =>
-  f.solto ? 'var(--serie-neutra)' : SERIES[i] ?? 'var(--serie-neutra)';
+export const corDaFatia = (i: number) => SERIES[i] ?? 'var(--serie-neutra)';
 
 const R = 86, LARGURA = 26, CENTRO = 110;
 const VOLTA = 2 * Math.PI * R;
@@ -57,7 +55,7 @@ export default function DonutOrcamento({ fatias }: { fatias: FatiaGrupo[] }) {
               <circle
                 key={a.f.nome}
                 cx={CENTRO} cy={CENTRO} r={R} fill="none"
-                stroke={corDaFatia(a.f, a.i)} strokeWidth={LARGURA} strokeLinecap="butt"
+                stroke={corDaFatia(a.i)} strokeWidth={LARGURA} strokeLinecap="butt"
                 strokeDasharray={`${a.comprimento} ${VOLTA - a.comprimento}`}
                 strokeDashoffset={a.offset}
                 opacity={ativa === null || ativa === a.i ? 1 : 0.32}
@@ -85,7 +83,7 @@ export default function DonutOrcamento({ fatias }: { fatias: FatiaGrupo[] }) {
             onMouseEnter={() => f.valor > 0 && setAtiva(i)}
             onMouseLeave={() => setAtiva(null)}
           >
-            <i className="dot" style={{ background: corDaFatia(f, i) }} aria-hidden="true" />
+            <i className="dot" style={{ background: corDaFatia(i) }} aria-hidden="true" />
             <span className="donut-legenda-nome">{f.nome}</span>
             <span className="donut-legenda-valor">{fmtBRL(f.valor)}</span>
             <span className="donut-legenda-pct">{Math.round(f.pct)}%</span>

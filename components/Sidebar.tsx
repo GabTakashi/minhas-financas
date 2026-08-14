@@ -10,7 +10,6 @@ const S = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: '
 const ICONS = {
   home: <svg {...S}><rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" /></svg>,
   lista: <svg {...S}><path d="M4 8h13l-3-3M20 16H7l3 3" /></svg>,
-  cartao: <svg {...S}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 9.8h19" /><path d="M6.5 15h3" /></svg>,
   grafico: <svg {...S}><path d="M12 3a9 9 0 1 0 9 9h-9z" /><path d="M14.5 2.6A9 9 0 0 1 21.4 9.5h-6.9z" /></svg>,
   pulso: <svg {...S}><path d="M2.5 12h4l2.5-6.5 4.5 13 2.5-6.5h5.5" /></svg>,
   repetir: <svg {...S}><path d="M3 11.5a8 8 0 0 1 13.7-5.6L21 10" /><path d="M21 4.5V10h-5.5" /><path d="M21 12.5a8 8 0 0 1-13.7 5.6L3 14" /><path d="M3 19.5V14h5.5" /></svg>,
@@ -24,7 +23,6 @@ const ICONS = {
 const PRINCIPAIS = [
   ['/', 'Visão geral', ICONS.home],
   ['/lancamentos', 'Lançamentos', ICONS.lista],
-  ['/cartao', 'Cartão', ICONS.cartao],
   ['/parcelados', 'Parcelados', ICONS.repetir],
   ['/metas', 'Metas', ICONS.alvo],
   ['/orcamento', 'Orçamento', ICONS.grafico],
@@ -40,7 +38,6 @@ const ABAS = [
 
 /** O que fica na folha "Mais". */
 const EXTRAS = [
-  ['/cartao', 'Cartão', ICONS.cartao],
   ['/parcelados', 'Parcelados', ICONS.repetir],
   ['/orcamento', 'Orçamento', ICONS.grafico],
   ['/desempenho', 'Desempenho', ICONS.pulso],
@@ -48,7 +45,7 @@ const EXTRAS = [
 ] as const;
 
 const TITULOS: Record<string, string> = {
-  '/': 'Visão geral', '/lancamentos': 'Lançamentos', '/cartao': 'Cartão',
+  '/': 'Visão geral', '/lancamentos': 'Lançamentos',
   '/parcelados': 'Parcelados', '/metas': 'Metas', '/orcamento': 'Orçamento',
   '/desempenho': 'Desempenho', '/config': 'Ajustes',
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcularIpf, ehGrupoDePoupanca, faixaDoScore, fracaoDoPilar, GrupoOrcamento } from '@/lib/score';
+import { calcularIpf, ehGrupoDePoupanca, faixaDoScore, GrupoOrcamento, pontosDoPilar } from '@/lib/score';
 
 const ESSENCIAIS: GrupoOrcamento = { nome: 'Essenciais', percentual: 50, categorias: ['Moradia', 'Alimentação', 'Saúde'] };
 const LAZER: GrupoOrcamento = { nome: 'Não essenciais', percentual: 30, categorias: ['Lazer', 'Lanche'] };
@@ -12,10 +12,12 @@ const ponto = (r: ReturnType<typeof calcularIpf>, nome: string) =>
 describe('faixaDoScore', () => {
   it('classifica cada faixa', () => {
     expect(faixaDoScore(100)).toBe('Excelente');
-    expect(faixaDoScore(85)).toBe('Excelente');
-    expect(faixaDoScore(70)).toBe('Muito Bom');
+    expect(faixaDoScore(90)).toBe('Excelente');
+    expect(faixaDoScore(89)).toBe('Muito Bom');
+    expect(faixaDoScore(75)).toBe('Muito Bom');
+    expect(faixaDoScore(74)).toBe('Atenção');
     expect(faixaDoScore(50)).toBe('Atenção');
-    expect(faixaDoScore(30)).toBe('Risco');
+    expect(faixaDoScore(49)).toBe('Crítico');
     expect(faixaDoScore(0)).toBe('Crítico');
   });
 });
@@ -33,20 +35,27 @@ describe('ehGrupoDePoupanca', () => {
   });
 });
 
-describe('fracaoDoPilar', () => {
-  it('teto: nota cheia até o alvo', () => {
-    expect(fracaoDoPilar('teto', 400, 1000)).toBe(1);
-    expect(fracaoDoPilar('teto', 1000, 1000)).toBe(1);
+describe('pontosDoPilar', () => {
+  it('teto: nota cheia enquanto couber no limite', () => {
+    expect(pontosDoPilar('teto', 50, 20)).toBe(50);
+    expect(pontosDoPilar('teto', 50, 50)).toBe(50);
   });
-  it('teto: cai proporcionalmente ao excesso e zera no dobro', () => {
-    expect(fracaoDoPilar('teto', 1500, 1000)).toBe(0.5);
-    expect(fracaoDoPilar('teto', 2000, 1000)).toBe(0);
-    expect(fracaoDoPilar('teto', 3000, 1000)).toBe(0);
+  it('teto: cada ponto percentual a mais custa 2,5 pontos', () => {
+    expect(pontosDoPilar('teto', 50, 54)).toBe(40);
+    expect(pontosDoPilar('teto', 30, 34)).toBe(20);
   });
-  it('meta: proporcional ao que foi alocado, sem passar de cheia', () => {
-    expect(fracaoDoPilar('meta', 500, 1000)).toBe(0.5);
-    expect(fracaoDoPilar('meta', 1000, 1000)).toBe(1);
-    expect(fracaoDoPilar('meta', 4000, 1000)).toBe(1);
+  it('teto: zera de vez e não fica negativo', () => {
+    expect(pontosDoPilar('teto', 50, 70)).toBe(0);
+    expect(pontosDoPilar('teto', 50, 95)).toBe(0);
+  });
+  it('meta: nota cheia ao alcançar ou passar do alvo', () => {
+    expect(pontosDoPilar('meta', 20, 20)).toBe(20);
+    expect(pontosDoPilar('meta', 20, 45)).toBe(20);
+  });
+  it('meta: cada ponto percentual a menos custa 2,5 pontos', () => {
+    expect(pontosDoPilar('meta', 20, 16)).toBe(10);
+    expect(pontosDoPilar('meta', 20, 12)).toBe(0);
+    expect(pontosDoPilar('meta', 20, 0)).toBe(0);
   });
 });
 
@@ -66,21 +75,35 @@ describe('calcularIpf — regra 50/30/20', () => {
     expect(ponto(r, 'Não essenciais')).toBe(30);
   });
 
-  it('essenciais em 75% da renda derruba o pilar pela metade', () => {
-    const r = calcularIpf(5000, TRES, { Moradia: 3750, Lazer: 1500, Investimentos: 1000 });
+  it('estourar pouco já cobra caro: 4 pontos percentuais custam 10 da nota', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2700, Lazer: 1500, Investimentos: 1000 });
+    expect(ponto(r, 'Essenciais')).toBe(40);
+    expect(r.total).toBe(90);
+  });
+
+  it('essenciais em 60% da renda derrubam o pilar pela metade', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 3000, Lazer: 1500, Investimentos: 1000 });
     expect(ponto(r, 'Essenciais')).toBe(25);
     expect(r.total).toBe(75);
+    expect(r.faixa).toBe('Muito Bom');
   });
 
-  it('gastar o dobro do teto zera o pilar', () => {
-    const r = calcularIpf(5000, TRES, { Lazer: 3000, Moradia: 2500, Investimentos: 1000 });
-    expect(ponto(r, 'Não essenciais')).toBe(0);
+  it('teto zera ao passar do peso mais o peso dividido por 2,5', () => {
+    // essenciais zera em 70% (50 + 50/2,5); não essenciais, em 42%
+    expect(ponto(calcularIpf(5000, TRES, { Moradia: 3500 }), 'Essenciais')).toBe(0);
+    expect(ponto(calcularIpf(5000, TRES, { Lazer: 2100 }), 'Não essenciais')).toBe(0);
   });
 
-  it('investir metade do alvo vale metade dos pontos', () => {
-    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 500 });
+  it('investir 16% em vez de 20% custa metade do pilar', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 800 });
     expect(ponto(r, 'Investimentos')).toBe(10);
     expect(r.total).toBe(90);
+  });
+
+  it('investir 12% ou menos zera o pilar de poupança', () => {
+    const r = calcularIpf(5000, TRES, { Moradia: 2500, Lazer: 1500, Investimentos: 600 });
+    expect(ponto(r, 'Investimentos')).toBe(0);
+    expect(r.total).toBe(80);
   });
 
   it('investir acima do alvo não passa dos 20 pontos', () => {

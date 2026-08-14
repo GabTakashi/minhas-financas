@@ -2,10 +2,7 @@
 import PageHead from '@/components/PageHead';
 import ScorePainel, { corDaFaixa } from '@/components/ScorePainel';
 import { useMonth } from '@/components/Providers';
-import {
-  useAllMonths, useAllTransactions, useBudgetGroups, useCard, usePurchases,
-} from '@/hooks/useFinance';
-import { faturaDoMes } from '@/lib/invoice';
+import { useAllMonths, useAllTransactions, useBudgetGroups } from '@/hooks/useFinance';
 import { fmtBRL } from '@/lib/money';
 import { shortMonth } from '@/lib/months';
 import { calcularIpf, FAIXAS, faixaDoScore } from '@/lib/score';
@@ -15,25 +12,19 @@ export default function Desempenho() {
   const { month } = useMonth();
   const allMonths = useAllMonths();
   const allTxs = useAllTransactions();
-  const cardQ = useCard();
-  const purchasesQ = usePurchases();
   const groupsQ = useBudgetGroups();
 
-  const queries = [allMonths, allTxs, cardQ, purchasesQ, groupsQ];
+  const queries = [allMonths, allTxs, groupsQ];
   if (queries.some(q => q.isLoading)) return <p className="empty-row">Carregando…</p>;
   if (queries.some(q => q.isError)) return <p className="empty-row">Erro ao carregar dados — recarregue a página.</p>;
 
-  const card = cardQ.data ?? null;
-  const purchases = purchasesQ.data ?? [];
   const txs = allTxs.data ?? [];
   const grupos = groupsQ.data ?? [];
 
   /** Nota de um mês qualquer: receita e gastos por categoria daquele mês. */
   function ipfDoMes(k: string) {
     const doMes = txs.filter(t => t.month === k);
-    const fatura = card ? faturaDoMes(purchases, card, k) : { items: [], total: 0 };
-    const entradas = monthTotals(doMes, fatura.total).entradas;
-    return calcularIpf(entradas, grupos, gastosPorCategoria(doMes, fatura.items));
+    return calcularIpf(monthTotals(doMes).entradas, grupos, gastosPorCategoria(doMes));
   }
 
   const ipf = ipfDoMes(month);
@@ -90,27 +81,40 @@ export default function Desempenho() {
 
       <div className="card" style={{ marginTop: 'var(--s-5)' }}>
         <h3>Evolução do IPF</h3>
-        <div className="card-sub" style={{ marginBottom: 'var(--s-4)' }}>últimos {evolucao.length} mês(es)</div>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Evolução do índice mês a mês">
-          {[0, 50, 100].map(v => (
-            <g key={v}>
-              <line x1={padL} y1={py(v)} x2={W - padR} y2={py(v)} stroke="var(--border-soft)" strokeDasharray="3 4" />
-              <text x={padL - 8} y={py(v) + 3.5} textAnchor="end" fontSize={9.5} fill="var(--text-3)" fontFamily="var(--font-mono)">{v}</text>
-            </g>
-          ))}
-          {evolucao.length > 1 && (
+        <div className="card-sub" style={{ marginBottom: 'var(--s-4)' }}>
+          {evolucao.length === 1 ? 'ainda não há linha do tempo' : `últimos ${evolucao.length} meses`}
+        </div>
+
+        {/* uma linha com um ponto só não é linha — vira um ponto voando no gráfico */}
+        {evolucao.length === 1 ? (
+          <div className="celebra">
+            <span className="celebra-selo primeiro" aria-hidden="true">🌱</span>
+            <strong>Primeiro mês registrado</strong>
+            <span className="card-sub">
+              Você fechou {shortMonth(evolucao[0].key)} com {evolucao[0].total} pontos.
+              Continue usando o app: no mês que vem a linha do tempo começa a aparecer aqui.
+            </span>
+          </div>
+        ) : (
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Evolução do índice mês a mês">
+            {[0, 50, 100].map(v => (
+              <g key={v}>
+                <line x1={padL} y1={py(v)} x2={W - padR} y2={py(v)} stroke="var(--border-soft)" strokeDasharray="3 4" />
+                <text x={padL - 8} y={py(v) + 3.5} textAnchor="end" fontSize={9.5} fill="var(--text-3)" fontFamily="var(--font-mono)">{v}</text>
+              </g>
+            ))}
             <polyline
               points={evolucao.map((e, i) => `${px(i)},${py(e.total)}`).join(' ')}
               fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
             />
-          )}
-          {evolucao.map((e, i) => (
-            <g key={e.key}>
-              <circle cx={px(i)} cy={py(e.total)} r={4} fill={corDaFaixa(e.total)} stroke="var(--surface-1)" strokeWidth={2} />
-              <text x={px(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="var(--text-3)">{shortMonth(e.key)}</text>
-            </g>
-          ))}
-        </svg>
+            {evolucao.map((e, i) => (
+              <g key={e.key}>
+                <circle cx={px(i)} cy={py(e.total)} r={4} fill={corDaFaixa(e.total)} stroke="var(--surface-1)" strokeWidth={2} />
+                <text x={px(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="var(--text-3)">{shortMonth(e.key)}</text>
+              </g>
+            ))}
+          </svg>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 'var(--s-5)' }}>
@@ -131,7 +135,7 @@ export default function Desempenho() {
           <div className="section-header" style={{ marginTop: 'var(--s-6)' }}><h2>Pontos de atenção</h2></div>
           {ipf.alertas.map(a => (
             <div className="card alerta-card" key={a.titulo}>
-              <strong>{a.titulo}</strong>
+              <strong className="alerta-titulo"><span aria-hidden="true">⚠️</span> {a.titulo}</strong>
               <p className="card-sub" style={{ marginTop: 4 }}>{a.texto}</p>
             </div>
           ))}

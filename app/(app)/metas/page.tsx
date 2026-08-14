@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import PageHead from '@/components/PageHead';
 import { useMonth, useToast } from '@/components/Providers';
-import { useAllMonths, useAllTransactions, useCard, usePurchases } from '@/hooks/useFinance';
+import { useAllMonths, useAllTransactions } from '@/hooks/useFinance';
 import { setMeta as setMetaAction } from '@/lib/actions';
 import { analisarPadrao, serieMetas, statusDoMes } from '@/lib/metas';
 import { fmtBRL, parseValorBR } from '@/lib/money';
@@ -16,20 +16,18 @@ export default function Metas() {
   const toast = useToast();
   const allMonths = useAllMonths();
   const allTxs = useAllTransactions();
-  const cardQ = useCard();
-  const purchasesQ = usePurchases();
 
   const [editando, setEditando] = useState(false);
   const [rascunho, setRascunho] = useState('');
   const [salvando, setSalvando] = useState(false);
 
-  if ([allMonths, allTxs, cardQ, purchasesQ].some(q => q.isLoading)) {
+  if ([allMonths, allTxs].some(q => q.isLoading)) {
     return <p className="empty-row">Carregando…</p>;
   }
 
   const meses = (allMonths.data ?? []).map(m => m.month).filter(k => k <= month).slice(-6);
   const metaPorMes = Object.fromEntries((allMonths.data ?? []).map(m => [m.month, Number(m.meta)]));
-  const resumos = serieDeResumos(allTxs.data ?? [], purchasesQ.data ?? [], cardQ.data ?? null, meses);
+  const resumos = serieDeResumos(allTxs.data ?? [], meses);
   const serie = serieMetas(resumos, metaPorMes);
 
   const atual = serie.find(p => p.month === month) ?? { month, economia: 0, meta: metaPorMes[month] ?? 0, pct: 0 };

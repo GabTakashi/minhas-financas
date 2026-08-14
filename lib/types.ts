@@ -19,24 +19,6 @@ export interface MonthRow {
   meta: number;
 }
 
-export interface Card {
-  id: string;
-  nome: string;
-  dia_fechamento: number; // 1–28
-  dia_vencimento: number; // 1–28
-  limite: number | null;
-}
-
-export interface CardPurchase {
-  id: string;
-  card_id: string;
-  descricao: string;
-  valor_total: number;
-  parcelas: number; // >= 1
-  data_compra: string; // 'YYYY-MM-DD'
-  categoria: string;
-}
-
 export interface Budget {
   id: string;
   month: string;
@@ -52,11 +34,3 @@ export interface BudgetGroup {
   ordem: number;
 }
 
-export interface InvoiceItem {
-  purchaseId: string;
-  descricao: string;
-  categoria: string;
-  parcela: number; // 1-based
-  parcelas: number;
-  valor: number;
-}

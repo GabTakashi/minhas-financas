@@ -3,7 +3,7 @@ import { analisarPadrao, PontoMeta, serieMetas, statusDoMes } from '@/lib/metas'
 import { ResumoMes } from '@/lib/resumo';
 
 const r = (month: string, poupado: number): ResumoMes =>
-  ({ month, entradas: 5000, saidas: 5000 - poupado, poupado, fatura: 0 });
+  ({ month, entradas: 5000, saidas: 5000 - poupado, poupado });
 
 const p = (month: string, economia: number, meta: number): PontoMeta =>
   ({ month, economia, meta, pct: meta > 0 ? Math.round((economia / meta) * 100) : 0 });

@@ -116,8 +116,12 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
 
   function abrirEdicao() {
     setNomes(groups.length ? groups.map(g => ({ nome: g.nome, percentual: String(g.percentual) })) : PADRAO);
+    // toda categoria precisa de grupo; as soltas já entram no primeiro
     const cg: Record<string, number> = {};
-    for (const c of CATEGORIAS) cg[c] = groups.findIndex(g => g.categorias.includes(c));
+    for (const c of CATEGORIAS) {
+      const i = groups.findIndex(g => g.categorias.includes(c));
+      cg[c] = i === -1 ? 0 : i;
+    }
     setCatGrupo(cg);
     setEditando(true);
   }
@@ -128,9 +132,10 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
 
   function removeGrupo(i: number) {
     setNomes(ns => ns.filter((_, idx) => idx !== i));
+    // as categorias do grupo removido caem no primeiro — nenhuma fica solta
     setCatGrupo(cg => {
       const novo: Record<string, number> = {};
-      for (const c in cg) novo[c] = cg[c] === i ? -1 : cg[c] > i ? cg[c] - 1 : cg[c];
+      for (const c in cg) novo[c] = cg[c] === i ? 0 : cg[c] > i ? cg[c] - 1 : cg[c];
       return novo;
     });
   }
@@ -139,6 +144,9 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
 
   async function salvar() {
     if (nomes.some(n => !n.nome.trim())) { toast('Dê um nome para todos os grupos'); return; }
+    if (nomes.length === 0) { toast('Crie pelo menos um grupo'); return; }
+    const orfas = CATEGORIAS.filter(c => catGrupo[c] == null || catGrupo[c] < 0);
+    if (orfas.length > 0) { toast(`Escolha um grupo para: ${orfas.join(', ')}`); return; }
     const payload = nomes.map((n, i) => ({
       nome: n.nome.trim(),
       percentual: Number(n.percentual) || 0,
@@ -161,7 +169,6 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
   if (!editando) {
     const totais = budgetGroupTotals(groups, gastos, entradas);
     const limiteDe = (c: string) => Number(budgets.find(b => b.categoria === c)?.limite ?? 0);
-    const semGrupo = CATEGORIAS.filter(c => !groups.some(g => g.categorias.includes(c)));
     const alternar = (nome: string) =>
       setAbertos(a => a.includes(nome) ? a.filter(x => x !== nome) : [...a, nome]);
 
@@ -240,32 +247,6 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
           );
         })}
 
-        {semGrupo.length > 0 && (
-          <div className={`card orc-grupo solto ${abertos.includes('__sem') ? 'aberto' : ''}`}>
-            <button
-              className="orc-grupo-topo" onClick={() => alternar('__sem')}
-              aria-expanded={abertos.includes('__sem')} aria-controls="grupo-sem"
-            >
-              <span className="orc-seta" aria-hidden="true">›</span>
-              <span className="orc-grupo-nome">
-                Fora dos grupos <span className="card-sub">não contam na nota</span>
-              </span>
-              <span className="orc-grupo-valores">
-                <strong>{fmtBRL(semGrupo.reduce((s, c) => s + (gastos[c] || 0), 0))}</strong>
-              </span>
-            </button>
-            {abertos.includes('__sem') && (
-              <div className="orc-grupo-corpo" id="grupo-sem">
-                {semGrupo.map(c => (
-                  <CategoriaLinha
-                    key={c} categoria={c} gasto={gastos[c] || 0}
-                    limite={limiteDe(c)} aoSalvar={aoSalvarLimite}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </>
     );
   }
@@ -300,17 +281,19 @@ export default function BudgetGroups({ groups, gastos, entradas, budgets, aoSalv
       ))}
       <button type="button" className="btn-ghost" onClick={addGrupo} style={{ marginTop: 4, marginBottom: 22 }}>+ Novo grupo</button>
 
-      <h3 style={{ marginBottom: 10, fontSize: 14 }}>Categorias</h3>
+      <h3 style={{ marginBottom: 4, fontSize: 14 }}>Categorias</h3>
+      <p className="card-sub" style={{ marginBottom: 10 }}>
+        Toda categoria precisa de um grupo — é isso que faz a regra 50/30/20 fechar em 100% dos gastos.
+      </p>
       {CATEGORIAS.map(c => (
         <div className="grupo-row" key={c}>
           <span className="g-cat-nome">{c}</span>
           <select
             className="g-cat-select"
-            value={catGrupo[c] ?? -1}
+            value={catGrupo[c] ?? 0}
             onChange={e => setCatGrupo(cg => ({ ...cg, [c]: Number(e.target.value) }))}
             aria-label={`Grupo de ${c}`}
           >
-            <option value={-1}>Sem grupo</option>
             {nomes.map((n, i) => <option key={i} value={i}>{n.nome || `Grupo ${i + 1}`}</option>)}
           </select>
         </div>

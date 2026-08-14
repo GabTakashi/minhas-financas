@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  budgetGroupTotals, distribuicaoPorGrupo, gastosPorCategoria, gastosPorCategoriaRealizado,
-  monthTotals, monthTotalsRealizado,
+  budgetGroupTotals, categoriasSemGrupo, distribuicaoPorGrupo, gastosPorCategoria,
+  gastosPorCategoriaRealizado, monthTotals, monthTotalsRealizado,
 } from '@/lib/totals';
-import { InvoiceItem, Transaction } from '@/lib/types';
+import { Transaction } from '@/lib/types';
 
 function tx(p: Partial<Transaction>): Transaction {
   return { id: 'x', month: '2026-07', type: 'fixo', descricao: 'T', valor: 100, categoria: 'Moradia', dia_vencimento: null, pago: false, ...p };
@@ -16,17 +16,16 @@ const txs: Transaction[] = [
 ];
 
 describe('monthTotals', () => {
-  it('inclui a fatura do cartão nas saídas', () => {
-    const t = monthTotals(txs, 500);
+  it('separa entradas, fixos e variáveis e fecha o saldo', () => {
+    const t = monthTotals(txs);
     expect(t.entradas).toBe(3000);
     expect(t.fixos).toBe(800);
     expect(t.variaveis).toBe(200);
-    expect(t.fatura).toBe(500);
-    expect(t.saidas).toBe(1500);
-    expect(t.saldo).toBe(1500);
+    expect(t.saidas).toBe(1000);
+    expect(t.saldo).toBe(2000);
   });
-  it('funciona sem fatura', () => {
-    expect(monthTotals(txs, 0).saidas).toBe(1000);
+  it('mês vazio fecha em zero', () => {
+    expect(monthTotals([])).toMatchObject({ entradas: 0, saidas: 0, saldo: 0 });
   });
 });
 
@@ -41,34 +40,24 @@ describe('monthTotalsRealizado', () => {
   ];
 
   it('soma só o que já foi recebido/pago, ignorando pendentes', () => {
-    const r = monthTotalsRealizado(mistos, 400, true);
+    const r = monthTotalsRealizado(mistos);
     expect(r.entradas).toBe(2000);
     expect(r.fixos).toBe(500);
     expect(r.variaveis).toBe(200);
-    expect(r.fatura).toBe(400);
-    expect(r.saidas).toBe(1100);
-    expect(r.saldo).toBe(900);
-  });
-
-  it('fatura não paga não entra nas saídas realizadas', () => {
-    const r = monthTotalsRealizado(mistos, 400, false);
-    expect(r.fatura).toBe(0);
     expect(r.saidas).toBe(700);
+    expect(r.saldo).toBe(1300);
   });
 });
 
 describe('gastosPorCategoria', () => {
-  it('soma lançamentos e parcelas do cartão por categoria; entradas ficam de fora', () => {
-    const items: InvoiceItem[] = [
-      { purchaseId: 'p', descricao: 'Mercado', categoria: 'Alimentação', parcela: 1, parcelas: 1, valor: 150 },
-    ];
-    const g = gastosPorCategoria(txs, items);
+  it('soma por categoria; entradas ficam de fora', () => {
+    const g = gastosPorCategoria(txs);
     expect(g['Moradia']).toBe(800);
-    expect(g['Alimentação']).toBe(350);
+    expect(g['Alimentação']).toBe(200);
     expect(Object.keys(g)).toHaveLength(2);
   });
   it('usa "Outros" quando a categoria é nula', () => {
-    const g = gastosPorCategoria([tx({ type: 'variavel', categoria: null, valor: 40 })], []);
+    const g = gastosPorCategoria([tx({ type: 'variavel', categoria: null, valor: 40 })]);
     expect(g['Outros']).toBe(40);
   });
 });
@@ -79,19 +68,11 @@ describe('gastosPorCategoriaRealizado', () => {
     tx({ type: 'fixo', valor: 300, categoria: 'Moradia', pago: false }),
     tx({ type: 'variavel', valor: 80, categoria: 'Lanche', pago: false }),
   ];
-  const items: InvoiceItem[] = [
-    { purchaseId: 'p', descricao: 'Mercado', categoria: 'Alimentação', parcela: 1, parcelas: 1, valor: 150 },
-  ];
 
   it('ignora lançamentos pendentes', () => {
-    const g = gastosPorCategoriaRealizado(mistos, [], true);
+    const g = gastosPorCategoriaRealizado(mistos);
     expect(g['Moradia']).toBe(500);
     expect(g['Lanche']).toBeUndefined();
-  });
-
-  it('só soma as parcelas do cartão se a fatura estiver paga', () => {
-    expect(gastosPorCategoriaRealizado(mistos, items, true)['Alimentação']).toBe(150);
-    expect(gastosPorCategoriaRealizado(mistos, items, false)['Alimentação']).toBeUndefined();
   });
 });
 
@@ -137,15 +118,11 @@ describe('distribuicaoPorGrupo', () => {
     ]);
   });
 
-  it('junta o que não está em grupo nenhum no fim', () => {
-    const d = distribuicaoPorGrupo(grupos, { Moradia: 500, Outros: 300, Transporte: 200 });
-    expect(d.at(-1)).toMatchObject({ nome: 'Fora dos grupos', valor: 500, solto: true });
-    expect(Math.round(d.at(-1)!.pct)).toBe(50);
-  });
-
-  it('não cria o bolo "fora dos grupos" quando tudo está agrupado', () => {
-    const d = distribuicaoPorGrupo(grupos, { Moradia: 100 });
-    expect(d.some(f => f.solto)).toBe(false);
+  it('só reparte entre os grupos: categoria solta não vira fatia', () => {
+    const d = distribuicaoPorGrupo(grupos, { Moradia: 500, Outros: 300 });
+    expect(d).toHaveLength(3);
+    expect(d.map(f => f.nome)).not.toContain('Fora dos grupos');
+    expect(Math.round(d[0].pct)).toBe(100);
   });
 
   it('mantém na lista o grupo que não gastou nada', () => {
@@ -159,8 +136,27 @@ describe('distribuicaoPorGrupo', () => {
     expect(d.every(f => f.valor === 0 && f.pct === 0)).toBe(true);
   });
 
-  it('sem grupos, tudo cai fora dos grupos', () => {
-    const d = distribuicaoPorGrupo([], { Moradia: 100, Lazer: 300 });
-    expect(d).toEqual([{ nome: 'Fora dos grupos', valor: 400, pct: 100, solto: true }]);
+  it('sem grupos, não há o que repartir', () => {
+    expect(distribuicaoPorGrupo([], { Moradia: 100, Lazer: 300 })).toEqual([]);
+  });
+});
+
+describe('categoriasSemGrupo', () => {
+  const grupos = [
+    { categorias: ['Moradia', 'Saúde'] },
+    { categorias: ['Lazer'] },
+  ];
+
+  it('denuncia a categoria com gasto que ficou fora de todo grupo', () => {
+    const fora = categoriasSemGrupo(grupos, { Moradia: 500, Outros: 300, Transporte: 200 });
+    expect(fora).toEqual([{ categoria: 'Outros', valor: 300 }, { categoria: 'Transporte', valor: 200 }]);
+  });
+
+  it('categoria sem gasto não vira aviso', () => {
+    expect(categoriasSemGrupo(grupos, { Moradia: 500, Outros: 0 })).toEqual([]);
+  });
+
+  it('tudo agrupado, nada a avisar', () => {
+    expect(categoriasSemGrupo(grupos, { Moradia: 500, Lazer: 100 })).toEqual([]);
   });
 });

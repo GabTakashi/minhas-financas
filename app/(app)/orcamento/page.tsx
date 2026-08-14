@@ -4,12 +4,11 @@ import BudgetGroups from '@/components/BudgetGroups';
 import DonutOrcamento from '@/components/DonutOrcamento';
 import PageHead from '@/components/PageHead';
 import { useMonth, useToast } from '@/components/Providers';
-import { useBudgetGroups, useBudgets, useCard, usePurchases, useTransactions } from '@/hooks/useFinance';
+import { useBudgetGroups, useBudgets, useTransactions } from '@/hooks/useFinance';
 import { setBudget } from '@/lib/actions';
 import { CATEGORIAS } from '@/lib/categories';
-import { faturaDoMes } from '@/lib/invoice';
 import { fmtBRL, parseValorBR } from '@/lib/money';
-import { distribuicaoPorGrupo, gastosPorCategoria, monthTotals } from '@/lib/totals';
+import { categoriasSemGrupo, distribuicaoPorGrupo, gastosPorCategoria, monthTotals } from '@/lib/totals';
 
 export default function Orcamento() {
   const { month } = useMonth();
@@ -18,17 +17,14 @@ export default function Orcamento() {
   const budgetsQ = useBudgets(month);
   const groupsQ = useBudgetGroups();
   const txsQ = useTransactions(month);
-  const cardQ = useCard();
-  const purchasesQ = usePurchases();
 
-  if (budgetsQ.isLoading || groupsQ.isLoading || txsQ.isLoading || cardQ.isLoading || purchasesQ.isLoading) {
+  if (budgetsQ.isLoading || groupsQ.isLoading || txsQ.isLoading) {
     return <p className="empty-row">Carregando…</p>;
   }
 
   const budgets = budgetsQ.data ?? [];
-  const fatura = cardQ.data ? faturaDoMes(purchasesQ.data ?? [], cardQ.data, month) : { items: [], total: 0 };
-  const gastos = gastosPorCategoria(txsQ.data ?? [], fatura.items);
-  const entradas = monthTotals(txsQ.data ?? [], fatura.total).entradas;
+  const gastos = gastosPorCategoria(txsQ.data ?? []);
+  const entradas = monthTotals(txsQ.data ?? []).entradas;
 
   async function setLimite(categoria: string, value: string) {
     const v = parseValorBR(value);
@@ -47,10 +43,19 @@ export default function Orcamento() {
 
   const totalOrcado = budgets.reduce((s, b) => s + Number(b.limite), 0);
   const totalGasto = CATEGORIAS.reduce((s, c) => s + (gastos[c] || 0), 0);
+  const orfas = categoriasSemGrupo(groupsQ.data ?? [], gastos);
 
   return (
     <>
       <PageHead title="Orçamento" sub="Reparta a renda em grupos e acompanhe o consumo do mês." />
+
+      {orfas.length > 0 && (
+        <div className="aviso-caixa padrao-alerta" style={{ marginBottom: 'var(--s-4)' }}>
+          ⚠️ {orfas.map(o => o.categoria).join(', ')} {orfas.length === 1 ? 'está' : 'estão'} sem grupo,
+          então {fmtBRL(orfas.reduce((s, o) => s + o.valor, 0))} de gastos ficam fora da nota e do gráfico.
+          Use <strong>Editar grupos</strong> para encaixar {orfas.length === 1 ? 'essa categoria' : 'essas categorias'}.
+        </div>
+      )}
 
       <div className="card chart-card" style={{ marginBottom: 'var(--s-5)' }}>
         <h3>Para onde foi o dinheiro</h3>

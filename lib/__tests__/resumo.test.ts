@@ -13,7 +13,7 @@ describe('resumoDoMes', () => {
       tx({ type: 'fixo', valor: 600, categoria: 'Reserva de Emergência' }),
       tx({ type: 'fixo', valor: 400, categoria: 'Investimentos' }),
     ];
-    const r = resumoDoMes(txs, [], null, '2026-08');
+    const r = resumoDoMes(txs, '2026-08');
     expect(r.entradas).toBe(5000);
     expect(r.saidas).toBe(2000);
     // sobrou 3000 e ainda guardou 1000 dentro das saídas
@@ -22,12 +22,12 @@ describe('resumoDoMes', () => {
 
   it('sem categorias de poupança, poupado é só o saldo', () => {
     const txs = [tx({ type: 'entrada', valor: 1000, categoria: null }), tx({ valor: 400 })];
-    expect(resumoDoMes(txs, [], null, '2026-08').poupado).toBe(600);
+    expect(resumoDoMes(txs, '2026-08').poupado).toBe(600);
   });
 
   it('mês sem lançamentos vira tudo zero', () => {
-    const r = resumoDoMes([], [], null, '2026-08');
-    expect(r).toMatchObject({ entradas: 0, saidas: 0, poupado: 0, fatura: 0 });
+    const r = resumoDoMes([], '2026-08');
+    expect(r).toMatchObject({ entradas: 0, saidas: 0, poupado: 0 });
   });
 });
 
@@ -54,7 +54,7 @@ describe('serieDeResumos', () => {
       tx({ month: '2026-07', type: 'entrada', valor: 3000, categoria: null }),
       tx({ month: '2026-08', type: 'entrada', valor: 5000, categoria: null }),
     ];
-    const s = serieDeResumos(txs, [], null, ['2026-07', '2026-08']);
+    const s = serieDeResumos(txs, ['2026-07', '2026-08']);
     expect(s.map(r => r.entradas)).toEqual([3000, 5000]);
   });
 });

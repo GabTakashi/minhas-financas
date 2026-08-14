@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { sql } from '@/lib/db';
 import { iniciarMesParaUsuario } from '@/lib/newMonth';
 import { Parcelado, parcelaDoMes, saldoRestante, semPrazo, TipoParcelado, valorDaParcela } from '@/lib/parcelado';
-import { Budget, BudgetGroup, Card, CardPurchase, MonthRow, Transaction, TxType } from '@/lib/types';
+import { Budget, BudgetGroup, MonthRow, Transaction, TxType } from '@/lib/types';
 
 // Toda a segurança de acesso a dados vive aqui: cada action resolve o usuário
 // da sessão e escopa as queries por user_id (não há RLS como no Supabase).
@@ -40,25 +40,6 @@ export async function listAllTransactions(): Promise<Transaction[]> {
   const uid = await userId();
   return await sql`select id, month, type, descricao, valor::float as valor, categoria, dia_vencimento, pago
     from transactions where user_id = ${uid}` as Transaction[];
-}
-
-export async function getCard(): Promise<Card | null> {
-  const uid = await userId();
-  const rows = await sql`select id, nome, dia_fechamento, dia_vencimento, limite::float as limite
-    from cards where user_id = ${uid} limit 1`;
-  return (rows[0] as Card | undefined) ?? null;
-}
-
-export async function listPurchases(): Promise<CardPurchase[]> {
-  const uid = await userId();
-  return await sql`select id, card_id, descricao, valor_total::float as valor_total, parcelas,
-    data_compra::text as data_compra, categoria
-    from card_purchases where user_id = ${uid} order by data_compra desc, created_at desc` as CardPurchase[];
-}
-
-export async function listInvoicePayments(): Promise<{ month: string; pago: boolean }[]> {
-  const uid = await userId();
-  return await sql`select month, pago from card_invoice_payments where user_id = ${uid}` as { month: string; pago: boolean }[];
 }
 
 export async function listBudgets(month: string): Promise<Budget[]> {
@@ -140,36 +121,6 @@ export async function setTransactionPago(id: string, pago: boolean): Promise<voi
 export async function deleteTransaction(id: string): Promise<void> {
   const uid = await userId();
   await sql`delete from transactions where id = ${id} and user_id = ${uid}`;
-}
-
-/* ── cartão ── */
-
-export async function insertCard(c: { nome: string; dia_fechamento: number; dia_vencimento: number; limite: number | null }): Promise<void> {
-  const uid = await userId();
-  await sql`insert into cards (user_id, nome, dia_fechamento, dia_vencimento, limite)
-    values (${uid}, ${c.nome}, ${c.dia_fechamento}, ${c.dia_vencimento}, ${c.limite})`;
-}
-
-export async function insertPurchase(p: { card_id: string; descricao: string; valor_total: number; parcelas: number; data_compra: string; categoria: string }): Promise<void> {
-  const uid = await userId();
-  await sql`insert into card_purchases (user_id, card_id, descricao, valor_total, parcelas, data_compra, categoria)
-    values (${uid}, ${p.card_id}, ${p.descricao}, ${p.valor_total}, ${p.parcelas}, ${p.data_compra}, ${p.categoria})`;
-}
-
-export async function deletePurchase(id: string): Promise<void> {
-  const uid = await userId();
-  await sql`delete from card_purchases where id = ${id} and user_id = ${uid}`;
-}
-
-export async function setInvoicePaid(cardId: string, month: string, pago: boolean): Promise<void> {
-  const uid = await userId();
-  if (pago) {
-    await sql`insert into card_invoice_payments (user_id, card_id, month, pago)
-      values (${uid}, ${cardId}, ${month}, true)
-      on conflict (user_id, card_id, month) do update set pago = true`;
-  } else {
-    await sql`delete from card_invoice_payments where user_id = ${uid} and card_id = ${cardId} and month = ${month}`;
-  }
 }
 
 /* ── orçamento ── */

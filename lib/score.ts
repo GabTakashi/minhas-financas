@@ -2,10 +2,9 @@
  * IPF — Índice de Performance Financeira.
  *
  * Nota de 0 a 100 tirada da regra 50/30/20: cada grupo de orçamento vale, em
- * pontos, o próprio percentual da renda. Grupos de gasto são **teto** (gastar
- * até o alvo dá a nota cheia; a partir daí a nota cai proporcionalmente, e
- * zera ao gastar o dobro do alvo). O grupo de poupança é **meta** (alocar o
- * alvo ou mais dá a nota cheia; alocar menos pontua proporcionalmente).
+ * pontos, o próprio percentual da renda. Grupos de gasto são **teto** e o de
+ * poupança é **meta**; em ambos, dentro da regra vale a nota cheia e fora dela
+ * cada ponto percentual de desvio custa PENALIDADE pontos, com chão em zero.
  *
  * Indicador interno deste app — não tem relação com score de crédito de bancos.
  */
@@ -50,12 +49,14 @@ const limita = (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v));
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export const FAIXAS = [
-  { nome: 'Excelente', de: 85, ate: 100 },
-  { nome: 'Muito Bom', de: 70, ate: 84 },
-  { nome: 'Atenção', de: 50, ate: 69 },
-  { nome: 'Risco', de: 30, ate: 49 },
-  { nome: 'Crítico', de: 0, ate: 29 },
+  { nome: 'Excelente', de: 90, ate: 100 },
+  { nome: 'Muito Bom', de: 75, ate: 89 },
+  { nome: 'Atenção', de: 50, ate: 74 },
+  { nome: 'Crítico', de: 0, ate: 49 },
 ] as const;
+
+/** Pontos perdidos por ponto percentual de desvio da regra. */
+export const PENALIDADE = 2.5;
 
 export function faixaDoScore(total: number): string {
   return FAIXAS.find(f => total >= f.de && total <= f.ate)?.nome ?? 'Crítico';
@@ -67,13 +68,16 @@ export function ehGrupoDePoupanca(g: GrupoOrcamento): boolean {
 }
 
 /**
- * Fração da nota do pilar, 0–1.
- * - meta: proporcional ao quanto do alvo foi alocado.
- * - teto: cheia até o alvo, caindo depois na mesma proporção do excesso.
+ * Pontos do pilar. Dentro da regra, nota cheia; fora, cada ponto percentual de
+ * desvio custa PENALIDADE pontos, sem passar do chão (0) nem do teto (peso).
+ *
+ * @param peso  percentual da renda reservado ao grupo — é também a nota cheia
+ * @param fatia percentual da renda que o grupo consumiu/guardou (0–100)
  */
-export function fracaoDoPilar(tipo: TipoPilar, gasto: number, alvo: number): number {
-  if (alvo <= 0) return tipo === 'meta' ? 0 : 1;
-  return limita(tipo === 'meta' ? gasto / alvo : 2 - gasto / alvo);
+export function pontosDoPilar(tipo: TipoPilar, peso: number, fatia: number): number {
+  const desvio = tipo === 'meta' ? peso - fatia : fatia - peso;
+  if (desvio <= 0) return peso;
+  return Math.max(0, peso - desvio * PENALIDADE);
 }
 
 function inacabado(titulo: string, texto: string): Ipf {
@@ -111,7 +115,7 @@ export function calcularIpf(
     const gasto = g.categorias.reduce((s, c) => s + (gastos[c] || 0), 0);
     const fatia = gasto / entradas;
     const tipo: TipoPilar = ehGrupoDePoupanca(g) ? 'meta' : 'teto';
-    const pontos = Math.round(fracaoDoPilar(tipo, gasto, alvo) * peso);
+    const pontos = Math.round(pontosDoPilar(tipo, peso, fatia * 100));
 
     if (tipo === 'teto' && gasto > alvo && alvo > 0) {
       alertas.push({
@@ -141,10 +145,10 @@ export function calcularIpf(
       dica: tipo === 'meta'
         ? gasto >= alvo
           ? `Você guardou ${pct(fatia)} da renda — a regra pede ${peso}%. Nota cheia ✓`
-          : `Você guardou ${pct(fatia)} da renda. A nota cheia vem a partir de ${peso}%.`
+          : `Você guardou ${pct(fatia)} da renda. Faltam ${Math.round(peso - fatia * 100)} pontos percentuais para os ${peso}%, e cada um custa ${PENALIDADE} pontos da nota.`
         : gasto <= alvo
           ? `Você usou ${pct(fatia)} da renda, dentro dos ${peso}% da regra.`
-          : `Você usou ${pct(fatia)} da renda, acima dos ${peso}% da regra. A nota zera ao dobrar o alvo.`,
+          : `Você usou ${pct(fatia)} da renda, ${Math.round(fatia * 100 - peso)} pontos percentuais acima dos ${peso}% da regra — cada um custa ${PENALIDADE} pontos da nota.`,
     };
   });
 

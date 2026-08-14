@@ -3,15 +3,20 @@ import Link from 'next/link';
 import { fmtBRL } from '@/lib/money';
 import { Ipf } from '@/lib/score';
 
-/** Cor da faixa: verde (bom) → lavanda → âmbar → coral (ruim). */
+/** Cor da faixa, alinhada aos cortes de FAIXAS: 90 / 75 / 50. */
 export function corDaFaixa(total: number): string {
-  if (total >= 85) return 'var(--income)';
-  if (total >= 70) return 'var(--primary)';
+  if (total >= 90) return 'var(--income)';
+  if (total >= 75) return 'var(--primary)';
   if (total >= 50) return 'var(--warning)';
   return 'var(--expense)';
 }
 
-export default function ScorePainel({ ipf, titulo = 'Visão geral do mês' }: { ipf: Ipf; titulo?: string }) {
+export default function ScorePainel({ ipf, titulo = 'Visão geral do mês', compacto = false }: {
+  ipf: Ipf;
+  titulo?: string;
+  /** só o número e o selo — o detalhamento por pilar vive na aba Desempenho */
+  compacto?: boolean;
+}) {
   if (!ipf.pronto) {
     return (
       <div className="card score-card">
@@ -23,6 +28,21 @@ export default function ScorePainel({ ipf, titulo = 'Visão geral do mês' }: { 
   }
 
   const cor = corDaFaixa(ipf.total);
+
+  if (compacto) {
+    return (
+      <div className="card score-card score-compacto">
+        <div className="card-label">{titulo}</div>
+        <div className="score-nota">
+          <span className="score-num" style={{ color: cor }}>{ipf.total}</span>
+          <span className="score-faixa" style={{ color: cor }}>{ipf.faixa}</span>
+          <span className="card-sub">regra 50/30/20</span>
+        </div>
+        <Link href="/desempenho" className="hint-link">Ver o detalhamento →</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="card score-card">
       <div className="card-label">{titulo}</div>
