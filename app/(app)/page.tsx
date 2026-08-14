@@ -90,8 +90,9 @@ export default function Home() {
   const resumo = resumoDoMes(txs, month);
   const ipf = calcularIpf(tPrevisto.entradas, groupsQ.data ?? [], gastosPorCategoria(txs));
 
-  // economia do mês = o que você separou (Investimentos/Reserva) + o que sobrou
-  const guardado = guardadoNoMes(txs);
+  // economia do mês = o que você separou (Investimentos/Reserva) + o que sobrou.
+  // Realizado no número grande, igual aos outros cards do painel.
+  const guardado = guardadoNoMes(txs, true);
   const economia = resumo.poupado;
   const metaPct = meta > 0 ? Math.max(0, Math.min(100, (economia / meta) * 100)) : 0;
   const metaOk = meta > 0 && economia >= meta;
@@ -128,6 +129,7 @@ export default function Home() {
           <div className="label">Economia do mês</div>
           <div className="value" style={{ color: metaOk ? 'var(--income)' : undefined }}>{fmtBRL(economia)}</div>
           <div className="sub" title={`Contam como economia: ${CATEGORIAS_POUPANCA.join(', ')} — e o que sobra no fim do mês.`}>
+            previsto: {fmtBRL(resumo.poupadoPrevisto)}<br />
             {guardado > 0
               ? <>{fmtBRL(guardado)} separado + {fmtBRL(economia - guardado)} que sobrou</>
               : 'o que sobrou (nada separado ainda)'}

@@ -27,7 +27,32 @@ describe('resumoDoMes', () => {
 
   it('mês sem lançamentos vira tudo zero', () => {
     const r = resumoDoMes([], '2026-08');
-    expect(r).toMatchObject({ entradas: 0, saidas: 0, poupado: 0 });
+    expect(r).toMatchObject({ entradas: 0, saidas: 0, poupado: 0, poupadoPrevisto: 0 });
+  });
+
+  it('entrada a receber não conta como economia, mas entra no previsto', () => {
+    const txs = [
+      tx({ type: 'entrada', valor: 5000, categoria: null, pago: true }),
+      tx({ type: 'entrada', valor: 300, categoria: null, pago: false }), // a receber
+      tx({ type: 'variavel', valor: 1000, categoria: 'Alimentação', pago: true }),
+      tx({ type: 'fixo', valor: 600, categoria: 'Reserva de Emergência', pago: true }),
+    ];
+    const r = resumoDoMes(txs, '2026-08');
+    // realizado: sobrou 3400 do que entrou de fato, mais os 600 separados
+    expect(r.poupado).toBe(4000);
+    // previsto: os 300 a receber entram na conta
+    expect(r.poupadoPrevisto).toBe(4300);
+    expect(r.entradas).toBe(5300);
+  });
+
+  it('poupança ainda não paga só conta no previsto', () => {
+    const txs = [
+      tx({ type: 'entrada', valor: 1000, categoria: null, pago: true }),
+      tx({ type: 'fixo', valor: 400, categoria: 'Investimentos', pago: false }),
+    ];
+    const r = resumoDoMes(txs, '2026-08');
+    expect(r.poupado).toBe(1000);        // nada saiu ainda: sobrou tudo
+    expect(r.poupadoPrevisto).toBe(1000); // 600 de saldo + 400 separados
   });
 });
 

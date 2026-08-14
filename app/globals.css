@@ -444,11 +444,18 @@ tr.paid td.num { text-decoration: line-through; font-weight: 400; }
 .card-label { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--s-4); }
 
 .score-corpo { display: flex; gap: var(--s-6); align-items: center; }
-/* variante do painel: só a nota, sem repetir as barras que já existem em Desempenho */
+/* variante do painel: só a nota, sem repetir as barras que já existem em Desempenho.
+   O card estica na altura da Constância ao lado, então o miolo centraliza
+   sozinho em vez de ficar pendurado no topo. */
 .score-compacto { display: flex; flex-direction: column; align-items: center; text-align: center; }
-.score-compacto .card-label { margin-bottom: var(--s-3); }
-.score-compacto .score-nota { min-width: 0; }
-.score-compacto .hint-link { margin-top: var(--s-4); }
+.score-compacto .card-label { margin-bottom: 0; }
+.score-compacto .score-nota {
+  min-width: 0; flex: 1; justify-content: center; gap: var(--s-1);
+  padding: var(--s-5) 0;
+}
+.score-compacto .score-num { font-size: clamp(56px, 7vw, 78px); }
+.score-compacto .score-faixa { font-size: 12.5px; margin-top: var(--s-3); }
+.score-compacto .hint-link { margin-top: auto; }
 .score-nota { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 96px; }
 .score-num { font-family: var(--font-mono); font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: -0.04em; }
 .score-faixa { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; margin-top: var(--s-2); }
