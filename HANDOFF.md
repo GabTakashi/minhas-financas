@@ -1,7 +1,7 @@
 # Handoff — Minhas Finanças
 
 **Gerado em:** 25/08/2026
-**Último commit:** `a175d0c feat: painel com heroi do saldo e faixa da regra 50/30/20`
+**Último commit:** `07736a3 merge: adota Tailwind + shadcn/ui nos modais (etapas 1 e 2)`
 
 ---
 
@@ -21,9 +21,14 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 **Stack:** Next.js 16 (App Router) + TypeScript + Postgres (Neon serverless driver) + NextAuth
 (login só por identificador, sem senha) + React Query. Idioma de todo o produto: **pt-BR**.
 
-**Não há Tailwind nem biblioteca de gráficos.** O estilo é um `app/globals.css` único com classes
-semânticas em português, e os cinco gráficos são SVG escrito à mão. Isso é deliberado — veja a
-seção 5.
+**O estilo é híbrido, e isso é deliberado.** O grosso da interface vem de um `app/globals.css`
+único (~1.240 linhas) com classes semânticas em português, e os cinco gráficos são SVG escrito à
+mão — **não há biblioteca de gráficos**. Desde 25/08 há também Tailwind v4 + shadcn/ui, usados
+**apenas nos cinco modais** (`components/ui/`). Os dois convivem porque o `@import` do Tailwind
+está no topo do `globals.css`: o preflight dele entra em `@layer`, e CSS sem layer sempre vence
+CSS em layer, então o design system continua mandando sem precisar de `!important`.
+
+Não saia convertendo o resto para Tailwind — veja a seção 5, decisões 15 e 16.
 
 ---
 
@@ -32,7 +37,7 @@ seção 5.
 - **Branch:** `main`, working tree limpo, tudo commitado e publicado
 - **140 testes** passando (`npm test`), typecheck e build limpos
 - **~5.840 linhas** em `app/`, `components/`, `lib/`, `hooks/`
-- O histórico dos **49 commits** é a documentação viva do projeto: as mensagens registram o
+- O histórico dos **56 commits** é a documentação viva do projeto: as mensagens registram o
   *porquê* das decisões não óbvias. Use `git log --oneline` e `git show <hash>` em vez de reler
   o código inteiro.
 
@@ -52,6 +57,8 @@ as credenciais desta máquina são da conta `GabTakashi`).
 | `09d5c38` | Economia do mês no realizado + nota compacta centralizada |
 | `b408f79` | **Next 16 + next-auth beta.32** — 19 CVEs do scan de segurança |
 | `a175d0c` | Painel com herói do saldo e faixa da regra 50/30/20 |
+| `9464246` | **`fix`: backup passou a exportar `budget_groups` e `parcelados`** |
+| `07736a3` | Merge da branch `shadcn`: Tailwind v4 + os cinco modais no Dialog |
 
 ---
 
@@ -88,6 +95,10 @@ as credenciais desta máquina são da conta `GabTakashi`).
 `DonutOrcamento.tsx` · `ProjecaoDivida.tsx` · `EvolutionChart.tsx` · `ScorePainel.tsx` ·
 `FaixaRegra.tsx` (faixa 50/30/20 do painel) · `Constancia.tsx` · `PullToRefresh.tsx` · `Logo.tsx`
 
+`components/ui/` são os componentes do shadcn (Dialog, Button, Input, Label, Select, Field,
+Separator). São **código-fonte do projeto**, não dependência: podem ser editados. Só o Dialog
+está em uso hoje, nos cinco modais.
+
 ### Banco
 - **`db/schema.sql`** — schema completo e comentado.
 - Tabelas: `users` (tem `meta_pct`), `months` (tem `meta`), `transactions` (tem `parcelado_id`),
@@ -100,7 +111,9 @@ as credenciais desta máquina são da conta `GabTakashi`).
 
 ### Scripts
 - `scripts/apply-schema.mjs` — aplica o schema num banco vazio
-- `scripts/backup-db.mjs` — **exporta todas as tabelas para JSON**
+- `scripts/backup-db.mjs` — **exporta todas as tabelas para JSON**. A lista de tabelas é
+  manual: se criar tabela nova, acrescente lá. `budget_groups` e `parcelados` ficaram de fora
+  por meses e todo backup saía incompleto sem avisar (corrigido em `9464246`).
 
 ---
 
@@ -166,6 +179,24 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
     linha v4 (4.24.15); um `npm i next-auth@latest` faz **downgrade** e quebra o login inteiro,
     porque a API da v4 é outra. Ficar no Next 15.x também não resolve CVE de `postcss`/`sharp`:
     o 15.5.23 ainda pina as versões vulneráveis, só o Next 16 traz as corrigidas.
+15. **Tailwind e o design system convivem por ordem de layer, não por força.** O `@import
+    'tailwindcss'` fica no **topo** do `globals.css` de propósito: o preflight dele entra em
+    `@layer` e o CSS do app é sem layer, e CSS sem layer sempre vence CSS em layer. Se alguém
+    mover esse import para o fim ou embrulhar o design system num `@layer`, o reset do Tailwind
+    passa a atropelar tudo. Nunca foi preciso um `!important`; se você sentir vontade de usar um,
+    a ordem provavelmente foi quebrada.
+16. **Os tokens do shadcn apontam para a paleta FINANCIA**, não para os cinzas padrão
+    (`--card: var(--surface-1)`, `--destructive: var(--expense)`, `--chart-N: var(--serie-N)`,
+    `--font-sans: var(--font-body)`). Ao rodar `shadcn init` ou `apply` de novo, **confira o
+    `:root`**: o init sobrescreveu `--primary` (a lavanda `#C0B4FE`, cor de ação do app) por um
+    quase-preto e `--accent` (o magenta dos gráficos) por um cinza. O magenta hoje vive em
+    `--serie-4`; `--accent` pertence ao shadcn. O bloco `.dark` que o init gera foi removido: o
+    app não tem modo claro e mantê-lo deixaria a armadilha de alguém aplicar a classe e reverter
+    a identidade toda.
+17. **shadcn/ui é usado só nos modais.** A etapa 3 (cards, layout, gráficos) foi avaliada e
+    **deliberadamente não feita**: é onde moram a paleta validada para daltonismo, o contraste
+    medido e os 5 SVGs à mão, e o shadcn não melhora nada disso. O ganho dele era acessibilidade
+    em componentes interativos, e já foi colhido.
 
 ---
 
@@ -184,6 +215,10 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
 - **`next-env.d.ts` alterna sozinho** entre `.next/types` e `.next/dev/types` conforme o último
   comando tenha sido `build` ou `dev`. É ruído esperado no `git status`; o `tsconfig.json` inclui
   os dois caminhos, então funciona nos dois modos.
+- **Os arquivos têm quebra de linha CRLF.** Substituições multilinha via script (`node -e` com
+  `String.replace`) falham silenciosamente por causa disso, e strings com acento passando pelo
+  shell também se corrompem. Para editar mais de uma linha de uma vez, use a ferramenta de edição
+  do agente em vez de um script.
 - **Não há identidade git configurada globalmente.** Já está setada localmente neste repo como
   `Gabriel <gabrieltgyamashita@gmail.com>`; se aparecer "Author identity unknown", é isso.
 - **Env vars da Vercel no PowerShell:** use Git Bash com `printf '%s' "$v" | npx vercel env add ...`,
@@ -203,10 +238,14 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
 Não há pendência funcional aberta — as 4 telas pedidas pelo usuário foram entregues e todas as
 mudanças estão em produção. Candidatos naturais:
 
-- **Migração para shadcn/ui** — a skill está instalada (`skills-lock.json`) e o usuário quer
-  avaliar numa sessão dedicada. O custo é alto: exige Tailwind + Radix, que o projeto não usa;
-  seria reescrever a camada de apresentação inteira e refazer a paleta validada (decisões 8 a 11).
-  O ganho é acessibilidade pronta em modais e accordions. Não comece sem confirmar com ele.
+- **Preview da Vercel não funciona para branches.** `DATABASE_URL` e `AUTH_SECRET` só existem no
+  ambiente de Production, então `vercel deploy` (sem `--prod`) falha no build. Isso custou caro na
+  migração do shadcn: não deu para o usuário revisar a branch antes de publicar. A saída certa é
+  **um banco Neon separado para preview**, não apontar o preview para o banco real — senão testar
+  "quitar parcelado" no preview mexeria nos dados de verdade.
+- **A migração para shadcn foi feita até a etapa 2 e parou lá de propósito** (decisão 17). Se o
+  usuário quiser reverter, a tag `antes-shadcn` marca o estado anterior e o merge foi `--no-ff`,
+  então dá para reverter o bloco inteiro de uma vez.
 - **`simplify`** — `app/globals.css` passou de 1.200 linhas e `lib/actions.ts` cresceu bastante.
   A remoção do Cartão deixou espaço para uma passada de limpeza.
 - **Ordem dos grupos na rosca, no accordion e na faixa** — as três listas seguem
