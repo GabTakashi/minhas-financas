@@ -1,3 +1,12 @@
+/* Tailwind entra primeiro e em @layer. O design system abaixo fica sem layer
+   de proposito: CSS sem layer sempre vence CSS em layer, entao o preflight do
+   Tailwind nao atropela nada do que ja existe aqui. */
+@import 'tailwindcss';
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* ── Superfícies (paleta FINANCIA) ── */
   --bg: #080910;          /* Ink Black — fundo da página */
@@ -19,7 +28,7 @@
   --expense-soft: rgba(224,75,110,.14);
   --warning: #FFC46B;
   --warning-soft: rgba(255,196,107,.14);
-  --accent: #E45FB0;      /* magenta — segundo tom dos gráficos */
+  /* o magenta dos graficos mora em --serie-4; --accent e do shadcn */
 
   /* ── Séries categóricas dos gráficos ──
      Ordem fixa: a cor segue o grupo, nunca a posição no ranking.
@@ -69,6 +78,42 @@
   --ease: cubic-bezier(.22,.61,.36,1);
 
   --sidebar-w: 236px;
+
+  /* ── Tokens do shadcn/ui, apontados para a paleta FINANCIA ──
+     O app e escuro por natureza (nao ha modo claro), entao os valores escuros
+     ficam aqui no :root mesmo. Assim os componentes do shadcn ja nascem com a
+     identidade do app em vez do cinza padrao. */
+  --background: var(--bg);
+  --foreground: var(--text-1);
+  --card: var(--surface-1);
+  --card-foreground: var(--text-1);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--text-1);
+  --primary-foreground: var(--on-primary);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text-1);
+  --muted: var(--surface-3);
+  --muted-foreground: var(--text-3);
+  --accent: var(--surface-3);
+  --accent-foreground: var(--text-1);
+  --destructive: var(--expense);
+  --border: var(--border-medium);
+  --input: var(--border-medium);
+  --ring: var(--border-focus);
+  --chart-1: var(--serie-1);
+  --chart-2: var(--serie-2);
+  --chart-3: var(--serie-3);
+  --chart-4: var(--serie-4);
+  --chart-5: var(--serie-neutra);
+  --radius: var(--r-sm);
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: var(--text-1);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--text-1);
+  --sidebar-border: var(--border-soft);
+  --sidebar-ring: var(--border-focus);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -262,7 +307,7 @@ a { color: var(--primary); }
 .faixa > .faixa-barra:first-child { margin-top: 0; }
 .faixa-barra div {
   height: 100%; border-radius: var(--r-full);
-  background: linear-gradient(90deg, var(--accent), var(--primary-deep), var(--primary));
+  background: linear-gradient(90deg, var(--serie-4), var(--primary-deep), var(--primary));
   transition: width 0.45s var(--ease);
 }
 .faixa-legenda {
@@ -316,7 +361,7 @@ a.meta-card:hover { border-color: var(--border-focus); }
 .cat-row { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); font-size: 13px; }
 .cat-row .cat-name { width: 105px; color: var(--text-2); flex-shrink: 0; }
 .cat-row .cat-bar-wrap { flex: 1; min-width: 44px; height: 8px; background: var(--surface-3); border-radius: var(--r-full); overflow: hidden; }
-.cat-row .cat-bar { height: 100%; border-radius: var(--r-full); background: linear-gradient(90deg, var(--primary-deep), var(--accent)); }
+.cat-row .cat-bar { height: 100%; border-radius: var(--r-full); background: linear-gradient(90deg, var(--primary-deep), var(--serie-4)); }
 .cat-row .cat-val { width: 92px; text-align: right; color: var(--text-1); font-weight: 500; font-family: var(--font-mono); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 /* linhas com rótulo e valor mais longos (ex.: "Gastos variáveis · R$ 280,86 (11%)") */
 .cat-row.wide .cat-name { width: 140px; }
@@ -1229,4 +1274,64 @@ a.nav-item { text-decoration: none; }
   .heroi { padding: var(--s-5) var(--s-4); }
   .regra-trilho.real { height: 26px; }
   .regra-legenda { grid-template-columns: 1fr; gap: 0; }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* O bloco .dark do shadcn foi removido de proposito: este app nao tem modo
+   claro, o :root ja carrega os valores escuros, e manter o .dark deixaria uma
+   armadilha -- quem adicionasse a classe reverteria os tokens para o cinza
+   padrao do shadcn, apagando a identidade FINANCIA. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
