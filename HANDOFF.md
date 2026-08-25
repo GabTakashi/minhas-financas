@@ -1,7 +1,7 @@
 # Handoff — Minhas Finanças
 
 **Gerado em:** 25/08/2026
-**Último commit:** `07736a3 merge: adota Tailwind + shadcn/ui nos modais (etapas 1 e 2)`
+**Último commit:** `cc561cc fix: reabrir um parcelado quitado remove a quitacao sozinho`
 
 ---
 
@@ -37,7 +37,7 @@ Não saia convertendo o resto para Tailwind — veja a seção 5, decisões 15 e
 - **Branch:** `main`, working tree limpo, tudo commitado e publicado
 - **140 testes** passando (`npm test`), typecheck e build limpos
 - **~5.840 linhas** em `app/`, `components/`, `lib/`, `hooks/`
-- O histórico dos **56 commits** é a documentação viva do projeto: as mensagens registram o
+- O histórico dos **58 commits** é a documentação viva do projeto: as mensagens registram o
   *porquê* das decisões não óbvias. Use `git log --oneline` e `git show <hash>` em vez de reler
   o código inteiro.
 
@@ -59,6 +59,7 @@ as credenciais desta máquina são da conta `GabTakashi`).
 | `a175d0c` | Painel com herói do saldo e faixa da regra 50/30/20 |
 | `9464246` | **`fix`: backup passou a exportar `budget_groups` e `parcelados`** |
 | `07736a3` | Merge da branch `shadcn`: Tailwind v4 + os cinco modais no Dialog |
+| `cc561cc` | **`fix`: reabrir parcelado quitado remove a quitação sozinho** |
 
 ---
 
@@ -149,8 +150,17 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
    (ligado por `transactions.parcelado_id`). Editar propaga; sair de vigência remove o pendente;
    `newMonth.ts` recria a partir do parcelado, **não** copia o fixo antigo.
 4. **Excluir parcelado preserva lançamentos já pagos** (histórico real); só remove pendentes.
-5. **Quitação antecipada lança despesa `variavel`, não `fixo`** — como fixo, o `newMonth.ts`
-   copiaria a quitação para todo mês seguinte.
+5. **A quitação antecipada é `variavel` e ligada ao parcelado — as duas coisas juntas.**
+   `variavel` e não `fixo` porque o `newMonth.ts` copiaria um fixo para todo mês seguinte;
+   com `parcelado_id` preenchido porque, sem o vínculo, ninguém a encontra depois. É esse par
+   (`type` + `parcelado_id`) que distingue a parcela da quitação dentro do mesmo parcelado.
+   Consequência: `sincronizar()` apaga a quitação assim que o parcelado deixa de estar quitado,
+   então reabrir um parcelado (baixar as parcelas pagas) limpa o lançamento sozinho. Antes ele
+   ficava para trás e o dinheiro era contado duas vezes — aconteceu de verdade com o "Vinyl V".
+   **Quem mexer aqui precisa lembrar que `parcelado_id` não significa mais "é uma parcela":**
+   `sincronizar()` filtra por `type='fixo'` ao procurar o lançamento do mês, a tela de Parcelados
+   monta o mapa de "parcela paga" só com os `fixo`, e o `TxModal` tem avisos diferentes para os
+   dois casos.
 6. **Nos parcelados, quem manda sobre "parcela paga" é `parcelas_pagas`**, não o status do
    lançamento: é o contador que define o saldo. Por isso um parcelado atrasado ainda oferece o
    botão "Pagar parcela", que serve justamente para reconciliar os dois.
