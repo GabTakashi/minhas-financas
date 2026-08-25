@@ -1,6 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { calendarioDoMes, diasNoMes, proximoSelo, SELOS, selosConquistados } from '@/lib/streak';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 
 const DIAS_SEMANA = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const NOMES_SEMANA = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
@@ -57,16 +60,15 @@ export default function Constancia({ datas, month }: { datas: string[]; month: s
         </div>
       )}
 
-      {verSelos && (
-        <div className="modal-fundo" onClick={() => setVerSelos(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Selos de constância">
-            <div className="section-header" style={{ marginBottom: 'var(--s-2)' }}>
-              <h3>Selos de constância</h3>
-              <button className="icon-btn" onClick={() => setVerSelos(false)} aria-label="Fechar">✕</button>
-            </div>
-            <p className="card-sub" style={{ marginBottom: 'var(--s-4)' }}>
-              Você ganha um selo a cada marca de dias registrados. Cada etapa é um nível a mais de clareza sobre seus gastos.
-            </p>
+      <Dialog open={verSelos} onOpenChange={setVerSelos}>
+        <DialogContent className="modal">
+          <DialogHeader>
+            <DialogTitle>Selos de constância</DialogTitle>
+            <DialogDescription>
+              Você ganha um selo a cada marca de dias registrados. Cada etapa é um nível a mais
+              de clareza sobre seus gastos.
+            </DialogDescription>
+          </DialogHeader>
             {SELOS.map(s => {
               const feito = total >= s.dias;
               return (
@@ -80,9 +82,8 @@ export default function Constancia({ datas, month }: { datas: string[]; month: s
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

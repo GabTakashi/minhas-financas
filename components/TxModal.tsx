@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { insertTransaction, setTransactionPago, updateTransaction } from '@/lib/actions';
 import { CATEGORIAS, iconeDe } from '@/lib/categories';
@@ -7,6 +7,7 @@ import { dataDaTx, diasDoMes, hojeISO } from '@/lib/dias';
 import { monthName } from '@/lib/months';
 import { TipoParcelado, TIPOS } from '@/lib/parcelado';
 import { Transaction, TxType } from '@/lib/types';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMonth, useToast } from './Providers';
 
 const ATALHOS = [10, 20, 50, 100, 200];
@@ -45,13 +46,7 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
   const isEntrada = tipo === 'entrada';
   const valor = emReais(digitos);
 
-  // Esc fecha o modal
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') aoFechar(); };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [aoFechar]);
+  // Esc, trava de rolagem e foco preso vêm do Dialog — não são mais feitos à mão.
 
   function digitar(bruto: string) {
     const so = bruto.replace(/\D/g, '').slice(0, 11);
@@ -93,12 +88,11 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
   }
 
   return (
-    <div className="modal-fundo" onClick={aoFechar}>
-      <form className="modal modal-tx" onClick={e => e.stopPropagation()} onSubmit={salvar}>
-        <div className="section-header" style={{ marginBottom: 'var(--s-4)' }}>
-          <h3>{editando ? 'Editar lançamento' : 'Novo lançamento'}</h3>
-          <button type="button" className="icon-btn" onClick={aoFechar} aria-label="Fechar">✕</button>
-        </div>
+    <Dialog open onOpenChange={aberto => !aberto && aoFechar()}>
+      <DialogContent className="modal modal-tx" render={<form onSubmit={salvar} />}>
+        <DialogHeader>
+          <DialogTitle>{editando ? 'Editar lançamento' : 'Novo lançamento'}</DialogTitle>
+        </DialogHeader>
 
         {/* Despesa | Receita */}
         <div className="tipo-abas">
@@ -212,9 +206,9 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
           <button type="submit" className="btn-primary" disabled={salvando}>
             {salvando ? 'Salvando…' : editando ? 'Salvar' : 'Adicionar'}
           </button>
-          <button type="button" className="btn-ghost" onClick={aoFechar}>Cancelar</button>
+          <DialogClose render={<button type="button" className="btn-ghost">Cancelar</button>} />
         </div>
-      </form>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
