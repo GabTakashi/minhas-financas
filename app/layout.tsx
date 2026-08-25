@@ -1,11 +1,12 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, Urbanist, Geist } from 'next/font/google';
+import { JetBrains_Mono, Urbanist } from 'next/font/google';
 import Providers from '@/components/Providers';
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
+// O shadcn init trouxe a Geist e a apontou para --font-sans. Foi removida: a
+// fonte de interface do app é a Urbanist, e manter as duas baixaria uma
+// família inteira à toa e faria os componentes do shadcn destoarem do resto.
 const urbanist = Urbanist({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--next-font-body' });
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--next-font-mono' });
 
@@ -19,7 +20,7 @@ const TEMA_SCRIPT = `try{var t=localStorage.getItem('tema');if(t==='dark'||t==='
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className={cn(urbanist.variable, jetbrainsMono.variable, "font-sans", geist.variable)}>
+    <html lang="pt-BR" suppressHydrationWarning className={cn(urbanist.variable, jetbrainsMono.variable, 'font-sans')}>
       <body>
         <script dangerouslySetInnerHTML={{ __html: TEMA_SCRIPT }} />
         <Providers>{children}</Providers>

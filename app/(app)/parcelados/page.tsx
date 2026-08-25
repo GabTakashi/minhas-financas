@@ -5,6 +5,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import PageHead from '@/components/PageHead';
 import ParceladoWizard from '@/components/ParceladoWizard';
 import ProjecaoDivida from '@/components/ProjecaoDivida';
+import {
+ Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { useMonth, useToast } from '@/components/Providers';
 import { useParcelados, useTransactions } from '@/hooks/useFinance';
 import { deleteParcelado, pagarParcela, quitarParcelado } from '@/lib/actions';
@@ -303,47 +306,51 @@ export default function Parcelados() {
       {wizard && <ParceladoWizard editando={editando} aoFechar={() => setWizard(false)} />}
 
       {/* ── quitação antecipada ── */}
-      {quitando && (
-        <div className="modal-fundo" onClick={() => setQuitando(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Quitar parcelado">
-            <div className="section-header" style={{ marginBottom: 'var(--s-2)' }}>
-              <h3>Quitar {quitando.nome}</h3>
-              <button className="icon-btn" onClick={() => setQuitando(null)} aria-label="Fechar">✕</button>
-            </div>
-            <p className="card-sub" style={{ marginBottom: 'var(--s-4)' }}>
-              Fecha o parcelado de uma vez. As parcelas que ainda não foram pagas somem dos seus
-              lançamentos; o que já estava pago fica no histórico.
-            </p>
+      {/* Primeiro modal convertido para o Dialog do shadcn: foco preso dentro
+          dele, Esc, devolução do foco ao fechar e trava de rolagem vêm prontos,
+          em vez de reimplementados à mão. */}
+      <Dialog open={!!quitando} onOpenChange={aberto => !aberto && setQuitando(null)}>
+        <DialogContent className="modal">
+          {quitando && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Quitar {quitando.nome}</DialogTitle>
+                <DialogDescription>
+                  Fecha o parcelado de uma vez. As parcelas que ainda não foram pagas somem dos
+                  seus lançamentos; o que já estava pago fica no histórico.
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="quitar-valor">
-              <span className="card-label">Saldo a quitar</span>
-              <strong className="faixa-num expense">{fmtBRL(saldoRestante(quitando) ?? 0)}</strong>
-              <span className="card-sub">
-                {quitando.parcelas! - quitando.parcelas_pagas === 1
-                  ? '1 parcela restante'
-                  : `${quitando.parcelas! - quitando.parcelas_pagas} parcelas restantes`}
-              </span>
-            </div>
+              <div className="quitar-valor">
+                <span className="card-label">Saldo a quitar</span>
+                <strong className="faixa-num expense">{fmtBRL(saldoRestante(quitando) ?? 0)}</strong>
+                <span className="card-sub">
+                  {quitando.parcelas! - quitando.parcelas_pagas === 1
+                    ? '1 parcela restante'
+                    : `${quitando.parcelas! - quitando.parcelas_pagas} parcelas restantes`}
+                </span>
+              </div>
 
-            <label className="campo-check" style={{ marginTop: 'var(--s-4)' }}>
-              <input type="checkbox" checked={lancarQuitacao} onChange={e => setLancarQuitacao(e.target.checked)} />
-              <span>Lançar como gasto pago em {monthName(month)}</span>
-            </label>
-            <p className="card-sub" style={{ marginTop: 'var(--s-2)' }}>
-              {lancarQuitacao
-                ? 'Entra como despesa variável deste mês — o dinheiro saiu de verdade.'
-                : 'Nada é lançado. Use se você já registrou esse pagamento de outra forma.'}
-            </p>
+              <label className="campo-check" style={{ marginTop: 'var(--s-4)' }}>
+                <input type="checkbox" checked={lancarQuitacao} onChange={e => setLancarQuitacao(e.target.checked)} />
+                <span>Lançar como gasto pago em {monthName(month)}</span>
+              </label>
+              <p className="card-sub" style={{ marginTop: 'var(--s-2)' }}>
+                {lancarQuitacao
+                  ? 'Entra como despesa variável deste mês — o dinheiro saiu de verdade.'
+                  : 'Nada é lançado. Use se você já registrou esse pagamento de outra forma.'}
+              </p>
 
-            <div className="grupo-actions" style={{ marginTop: 'var(--s-5)' }}>
-              <button className="btn-primary" disabled={quitandoAgora} onClick={confirmarQuitacao}>
-                {quitandoAgora ? 'Quitando…' : 'Confirmar quitação'}
-              </button>
-              <button className="btn-ghost" onClick={() => setQuitando(null)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="grupo-actions" style={{ marginTop: 'var(--s-5)' }}>
+                <button className="btn-primary" disabled={quitandoAgora} onClick={confirmarQuitacao}>
+                  {quitandoAgora ? 'Quitando…' : 'Confirmar quitação'}
+                </button>
+                <DialogClose render={<button className="btn-ghost">Cancelar</button>} />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
