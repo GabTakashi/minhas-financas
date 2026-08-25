@@ -2,6 +2,9 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import PageHead from '@/components/PageHead';
+import {
+  Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { useMonth, useToast } from '@/components/Providers';
 import { useAllMonths, useAllTransactions } from '@/hooks/useFinance';
 import { setMeta as setMetaAction } from '@/lib/actions';
@@ -189,31 +192,28 @@ export default function Metas() {
       </div>
 
       {/* ── modal de edição ── */}
-      {editando && (
-        <div className="modal-fundo" onClick={() => setEditando(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Definir meta">
-            <div className="section-header" style={{ marginBottom: 'var(--s-2)' }}>
-              <h3>Meta de {monthName(month)}</h3>
-              <button className="icon-btn" onClick={() => setEditando(false)} aria-label="Fechar">✕</button>
-            </div>
-            <p className="card-sub" style={{ marginBottom: 'var(--s-4)' }}>
+      <Dialog open={editando} onOpenChange={setEditando}>
+        <DialogContent className="modal">
+          <DialogHeader>
+            <DialogTitle>Meta de {monthName(month)}</DialogTitle>
+            <DialogDescription>
               Quanto você quer economizar neste mês. Conta o que você separa em Investimentos e
               Reserva de Emergência, mais o que sobra no fim do mês.
-            </p>
-            <label className="campo">
-              <span>Valor (R$ / mês)</span>
-              <input autoFocus value={rascunho} onChange={e => setRascunho(e.target.value)}
-                placeholder="ex.: 600,00" inputMode="decimal" />
-            </label>
-            <div className="grupo-actions">
-              <button className="btn-primary" disabled={salvando} onClick={salvar}>
-                {salvando ? 'Salvando…' : 'Salvar meta'}
-              </button>
-              <button className="btn-ghost" onClick={() => setEditando(false)}>Cancelar</button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <label className="campo">
+            <span>Valor (R$ / mês)</span>
+            <input autoFocus value={rascunho} onChange={e => setRascunho(e.target.value)}
+              placeholder="ex.: 600,00" inputMode="decimal" />
+          </label>
+          <div className="grupo-actions">
+            <button className="btn-primary" disabled={salvando} onClick={salvar}>
+              {salvando ? 'Salvando…' : 'Salvar meta'}
+            </button>
+            <DialogClose render={<button className="btn-ghost">Cancelar</button>} />
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

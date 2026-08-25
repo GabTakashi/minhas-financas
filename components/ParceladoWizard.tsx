@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { converterEmParcelado, saveParcelado } from '@/lib/actions';
 import { CATEGORIAS, iconeDe } from '@/lib/categories';
@@ -7,6 +7,7 @@ import { fmtBRL } from '@/lib/money';
 import {
   calendario, Parcelado, semPrazo, TipoParcelado, TIPOS, valorDaParcela,
 } from '@/lib/parcelado';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from './Providers';
 
 const ETAPAS = ['Tipo', 'Valores', 'Datas', 'Revisar'];
@@ -70,12 +71,7 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, or
     valor_total: recorrente ? null : valorDigitado,
   }, 12) : [], [tipo, parcelas, venc, diaVenc, valorParcela, valorDigitado, recorrente]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') aoFechar(); };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
-  }, [aoFechar]);
+  // Esc, trava de rolagem e foco preso vêm do Dialog.
 
   const podeAvancar =
     etapa === 0 ? nome.trim().length > 0
@@ -108,12 +104,13 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, or
   }
 
   return (
-    <div className="modal-fundo" onClick={aoFechar}>
-      <div className="modal modal-wizard" onClick={e => e.stopPropagation()} role="dialog" aria-label="Cadastrar parcelado">
-        <div className="section-header" style={{ marginBottom: 'var(--s-3)' }}>
-          <h3>{origem ? 'Transformar em parcelado' : editando ? 'Editar parcelado' : 'Cadastrar novo parcelado'}</h3>
-          <button className="icon-btn" onClick={aoFechar} aria-label="Fechar">✕</button>
-        </div>
+    <Dialog open onOpenChange={aberto => !aberto && aoFechar()}>
+      <DialogContent className="modal modal-wizard">
+        <DialogHeader>
+          <DialogTitle>
+            {origem ? 'Transformar em parcelado' : editando ? 'Editar parcelado' : 'Cadastrar novo parcelado'}
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="card-label" style={{ marginBottom: 4 }}>Etapa {etapa + 1} de 4</div>
         <h2 className="wizard-titulo">
@@ -304,7 +301,7 @@ export default function ParceladoWizard({ editando, tipoInicial, nomeInicial, or
                 {salvando ? 'Salvando…' : origem ? 'Transformar em parcelado' : editando ? 'Salvar alterações' : 'Cadastrar parcelado'}
               </button>}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
