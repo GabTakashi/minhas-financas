@@ -47,8 +47,11 @@ export default function Parcelados() {
   const fixosSoltos = txs.filter(t => t.type === 'fixo' && !t.parcelado_id);
   const totalFixosSoltos = fixosSoltos.reduce((s, t) => s + Number(t.valor), 0);
 
-  // lançamento que cada parcelado gerou neste mês — diz se a parcela já foi paga
-  const txDoParcelado = new Map(txs.filter(t => t.parcelado_id).map(t => [t.parcelado_id!, t]));
+  // lançamento da parcela deste mês — diz se ela já foi paga. Só o 'fixo': um
+  // parcelado quitado também tem um 'variavel' de quitação ligado a ele.
+  const txDoParcelado = new Map(
+    txs.filter(t => t.parcelado_id && t.type === 'fixo').map(t => [t.parcelado_id!, t]),
+  );
 
   const restanteTotal = ativos.reduce((s, p) => s + (saldoRestante(p) ?? 0), 0);
   const mensalTotal = ativos

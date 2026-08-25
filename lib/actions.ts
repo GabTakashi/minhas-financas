@@ -179,17 +179,29 @@ export interface ParceladoInput {
  */
 async function sincronizar(uid: string, parceladoId: string): Promise<void> {
   const rows = await sql`select nome, tipo, categoria, valor_total::float as valor_total,
-    parcelas, valor_parcela::float as valor_parcela,
+    parcelas, valor_parcela::float as valor_parcela, parcelas_pagas,
     primeiro_vencimento::text as primeiro_vencimento, dia_vencimento
     from parcelados where id = ${parceladoId} and user_id = ${uid}`;
   const p = rows[0] as (ParceladoInput & { parcelas_pagas?: number }) | undefined;
   if (!p) return;
 
+  // A quitação antecipada (lançamento 'variavel' ligado a este parcelado) só faz
+  // sentido enquanto ele estiver quitado. Se o usuário voltar atrás e reduzir as
+  // parcelas pagas, ela sai junto — senão o dinheiro ficaria contado duas vezes,
+  // e caberia a ele lembrar de apagar o lançamento à mão nos Lançamentos.
+  const quitado = p.parcelas != null && (p.parcelas_pagas ?? 0) >= p.parcelas;
+  if (!quitado) {
+    await sql`delete from transactions
+      where user_id = ${uid} and parcelado_id = ${parceladoId} and type = 'variavel'`;
+  }
+
   const meses = (await sql`select month from months where user_id = ${uid}`).map(r => r.month as string);
   for (const month of meses) {
     const indice = parcelaDoMes(p as never, month);
+    // só o lançamento da parcela ('fixo'); a quitação nunca é tocada por aqui
     const existente = await sql`select id, pago from transactions
-      where user_id = ${uid} and month = ${month} and parcelado_id = ${parceladoId}`;
+      where user_id = ${uid} and month = ${month} and parcelado_id = ${parceladoId}
+        and type = 'fixo'`;
 
     if (indice === null) {
       // saiu de vigência: só apaga o que ainda não foi pago
@@ -305,10 +317,14 @@ export async function quitarParcelado(id: string, month: string, lancar: boolean
     where id = ${id} and user_id = ${uid}`;
 
   if (lancar && restante > 0) {
+    // Fica ligado ao parcelado (parcelado_id) para que editar o parcelado de
+    // volta para "não quitado" consiga encontrá-la e removê-la sozinho. Continua
+    // sendo 'variavel', e não 'fixo', porque o newMonth copiaria um fixo para
+    // todo mês seguinte — é esse tipo que distingue a quitação da parcela.
     await sql`insert into transactions
-      (user_id, month, type, descricao, valor, categoria, dia_vencimento, pago)
+      (user_id, month, type, descricao, valor, categoria, dia_vencimento, pago, parcelado_id)
       values (${uid}, ${month}, 'variavel', ${`Quitação de ${p.nome}`}, ${restante},
-        ${p.categoria}, ${p.dia_vencimento}, true)`;
+        ${p.categoria}, ${p.dia_vencimento}, true, ${id})`;
   }
 }
 

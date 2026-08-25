@@ -142,10 +142,19 @@ export default function TxModal({ editando, aoFechar, aoAbrirParcelado }: {
             </div>
 
             {/* já vem de um parcelado: editar aqui sairia do ar com o cadastro */}
-            {editando?.parcelado_id && (
+            {editando?.parcelado_id && editando.type === 'fixo' && (
               <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
                 🔁 Este lançamento vem de um parcelado. Para mudar valor, parcelas ou prazo,
                 edite-o na aba <strong>Parcelados</strong>.
+              </div>
+            )}
+
+            {/* a quitação também é ligada ao parcelado, mas é um pagamento avulso */}
+            {editando?.parcelado_id && editando.type === 'variavel' && (
+              <div className="aviso-caixa" style={{ marginBottom: 'var(--s-4)' }}>
+                ✅ Esta é a quitação de um parcelado. Se você reabrir esse parcelado na aba
+                <strong> Parcelados</strong> (reduzindo as parcelas pagas), este lançamento
+                some junto — não precisa apagá-lo à mão.
               </div>
             )}
 
