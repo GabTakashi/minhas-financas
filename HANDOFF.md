@@ -1,7 +1,7 @@
 # Handoff — Minhas Finanças
 
-**Gerado em:** 14/08/2026
-**Último commit:** `d6488ed refactor: nota 50/30/20 punitiva, fim do Cartao e limpeza de UI`
+**Gerado em:** 25/08/2026
+**Último commit:** `a175d0c feat: painel com heroi do saldo e faixa da regra 50/30/20`
 
 ---
 
@@ -13,12 +13,12 @@ App de finanças pessoais auto-hospedado, em produção e em uso diário real pe
 |---|---|
 | **Código** | `C:\Users\Takashi\Documents\Pessoal\Finanças` |
 | **App no ar** | https://minhas-financas-beige-rho.vercel.app |
-| **Repositório de origem** | https://github.com/junoorb36-bot/minhas-financas |
+| **Repositório** | https://github.com/GabTakashi/minhas-financas (público) |
 | **Guia do projeto** | `CLAUDE.md` na raiz — leia antes de mexer |
 | **Banco** | Neon (Postgres). String de conexão em `.env.local` (**não versionado**) |
 | **Deploy** | Vercel, projeto `minhas-financas` (org `gabtakashis-projects`) |
 
-**Stack:** Next.js 15 (App Router) + TypeScript + Postgres (Neon serverless driver) + NextAuth
+**Stack:** Next.js 16 (App Router) + TypeScript + Postgres (Neon serverless driver) + NextAuth
 (login só por identificador, sem senha) + React Query. Idioma de todo o produto: **pt-BR**.
 
 **Não há Tailwind nem biblioteca de gráficos.** O estilo é um `app/globals.css` único com classes
@@ -30,21 +30,28 @@ seção 5.
 ## 2. Estado atual
 
 - **Branch:** `main`, working tree limpo, tudo commitado e publicado
-- **138 testes** passando (`npm test`), typecheck e build limpos
-- **~5.700 linhas** em `app/`, `components/`, `lib/`, `hooks/`
-- O histórico dos **19 commits** é a documentação viva do projeto: as mensagens registram o
+- **140 testes** passando (`npm test`), typecheck e build limpos
+- **~5.840 linhas** em `app/`, `components/`, `lib/`, `hooks/`
+- O histórico dos **49 commits** é a documentação viva do projeto: as mensagens registram o
   *porquê* das decisões não óbvias. Use `git log --oneline` e `git show <hash>` em vez de reler
   o código inteiro.
 
-### O que a última sessão (14/08) entregou
+### O que as últimas sessões entregaram
+
+Os hashes mudaram em 24/08: o repositório foi republicado em
+`github.com/GabTakashi/minhas-financas` (o remote antigo, `junoorb36-bot`, não aceitava push —
+as credenciais desta máquina são da conta `GabTakashi`).
 
 | Commit | O quê |
 |---|---|
-| `065e3dd` | Parcelados: card RESTANTE, gráfico de projeção da dívida, Pagar parcela / Quitar parcelado |
-| `9d6f197` | Extrato agrupado por dia + data explícita no lançamento |
-| `eed6c24` | Nota pela regra 50/30/20 + orçamento em grupos expansíveis |
-| `b31168e` | Rosca da distribuição de gastos no topo do Orçamento |
-| `d6488ed` | Nota punitiva (2,5×), remoção do Cartão, limpeza de UI e acessibilidade |
+| `f4275ea` | Parcelados: card RESTANTE, gráfico de projeção da dívida, Pagar parcela / Quitar parcelado |
+| `3eb3be2` | Extrato agrupado por dia + data explícita no lançamento |
+| `f5b7d1f` | Nota pela regra 50/30/20 + orçamento em grupos expansíveis |
+| `bb13591` | Rosca da distribuição de gastos no topo do Orçamento |
+| `da0fde3` | Nota punitiva (2,5×), remoção do Cartão, limpeza de UI e acessibilidade |
+| `09d5c38` | Economia do mês no realizado + nota compacta centralizada |
+| `b408f79` | **Next 16 + next-auth beta.32** — 19 CVEs do scan de segurança |
+| `a175d0c` | Painel com herói do saldo e faixa da regra 50/30/20 |
 
 ---
 
@@ -79,7 +86,7 @@ seção 5.
 `TxModal.tsx` · `TxLinha.tsx` (linha compartilhada) · `TxDias.tsx` (extrato por dia) ·
 `TxSection.tsx` (extrato por tipo) · `ParceladoWizard.tsx` · `BudgetGroups.tsx` (accordion) ·
 `DonutOrcamento.tsx` · `ProjecaoDivida.tsx` · `EvolutionChart.tsx` · `ScorePainel.tsx` ·
-`FaixaReceita.tsx` · `Constancia.tsx` · `PullToRefresh.tsx` · `Logo.tsx`
+`FaixaRegra.tsx` (faixa 50/30/20 do painel) · `Constancia.tsx` · `PullToRefresh.tsx` · `Logo.tsx`
 
 ### Banco
 - **`db/schema.sql`** — schema completo e comentado.
@@ -148,6 +155,17 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
     `--warning` porque o âmbar dava só ΔE 6.5 contra o verde em protanopia (piso é 8).
 11. **`--text-3` é `#8B8FA8`** porque o antigo `#6E7191` dava 3.95:1 sobre o card, abaixo do
     mínimo AA de 4.5:1. Não escureça de volta.
+12. **A JetBrains Mono é a face de display do painel**, não só a fonte dos valores. O saldo do mês
+    vai a 68px em mono com tracking −0.055em; a Urbanist recua para rótulo e interface. A mono já
+    era a voz do dinheiro no app, e em escala grande dá o caráter de registro contábil.
+13. **A faixa 50/30/20 (`FaixaRegra.tsx`) são duas trilhas empilhadas**, régua em cima e real
+    embaixo, na mesma escala. A primeira versão marcava o alvo com traços verticais **por cima**
+    do bloco real: eles caíam dentro do bloco, cortavam-no em pedaços e pareciam divisórias de
+    grupo. Não reintroduza a marca sobreposta.
+14. **`next-auth` é atualizado pela tag `beta`, nunca pela `latest`.** A `latest` aponta para a
+    linha v4 (4.24.15); um `npm i next-auth@latest` faz **downgrade** e quebra o login inteiro,
+    porque a API da v4 é outra. Ficar no Next 15.x também não resolve CVE de `postcss`/`sharp`:
+    o 15.5.23 ainda pina as versões vulneráveis, só o Next 16 traz as corrigidas.
 
 ---
 
@@ -159,6 +177,13 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
   dev de novo. Vale também para apagar o `.next/` — só com o servidor parado.
 - **Deploy da Vercel falha com "Not authorized" de forma intermitente.** Rode
   `npx vercel deploy --prod --yes` de novo — funciona na segunda.
+- **A pasta fica no OneDrive**, que às vezes trava arquivos do `.git` no meio de uma operação
+  (`Unable to create '.git/CHERRY_PICK_HEAD.lock': File exists`, `could not remove .git/sequencer`).
+  Não é processo git concorrente: apague o `.lock`/`sequencer` e refaça. Em operação longa, um
+  commit de cada vez sofre menos que tudo de uma vez.
+- **`next-env.d.ts` alterna sozinho** entre `.next/types` e `.next/dev/types` conforme o último
+  comando tenha sido `build` ou `dev`. É ruído esperado no `git status`; o `tsconfig.json` inclui
+  os dois caminhos, então funciona nos dois modos.
 - **Não há identidade git configurada globalmente.** Já está setada localmente neste repo como
   `Gabriel <gabrieltgyamashita@gmail.com>`; se aparecer "Author identity unknown", é isso.
 - **Env vars da Vercel no PowerShell:** use Git Bash com `printf '%s' "$v" | npx vercel env add ...`,
@@ -178,12 +203,16 @@ Vale reler antes de mexer — a matemática mudou duas vezes em 14/08.
 Não há pendência funcional aberta — as 4 telas pedidas pelo usuário foram entregues e todas as
 mudanças estão em produção. Candidatos naturais:
 
-- **`simplify`** — `app/globals.css` passou de 1.100 linhas e `lib/actions.ts` cresceu bastante.
+- **Migração para shadcn/ui** — a skill está instalada (`skills-lock.json`) e o usuário quer
+  avaliar numa sessão dedicada. O custo é alto: exige Tailwind + Radix, que o projeto não usa;
+  seria reescrever a camada de apresentação inteira e refazer a paleta validada (decisões 8 a 11).
+  O ganho é acessibilidade pronta em modais e accordions. Não comece sem confirmar com ele.
+- **`simplify`** — `app/globals.css` passou de 1.200 linhas e `lib/actions.ts` cresceu bastante.
   A remoção do Cartão deixou espaço para uma passada de limpeza.
-- **Ordem dos grupos na rosca vs. accordion** — hoje as duas listas seguem `budget_groups.ordem`,
-  então as cores batem. Se algum dia a ordem divergir, as cores divergem junto.
-- **Faixa de receita** (`FaixaReceita.tsx`) hoje é só a barra, entre os cards do mês e a nota. O
-  bloco de métricas do topo foi removido a pedido do usuário — não o traga de volta sem pedir.
+- **Ordem dos grupos na rosca, no accordion e na faixa** — as três listas seguem
+  `budget_groups.ordem`, então as cores batem entre si. Se a ordem divergir, as cores divergem.
+- **Propagar o refino visual** — o herói e a hierarquia nova estão só na Visão geral. Lançamentos,
+  Orçamento e Desempenho seguem no layout antigo de cards de peso uniforme.
 - **Meses futuros:** o app depende de o mês ser "iniciado" para aparecer. O cron em
   `app/api/cron/route.ts` faz isso automaticamente se `CRON_SECRET` estiver configurado na Vercel.
 
