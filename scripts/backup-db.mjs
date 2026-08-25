@@ -9,9 +9,13 @@ const url = process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL não definida'); process.exit(1); }
 const sql = neon(url);
 
+// Toda tabela do schema entra aqui. Se criar tabela nova, acrescente também —
+// `budget_groups` e `parcelados` ficaram de fora por meses, o que tornava o
+// backup silenciosamente incompleto: sem elas se perdem a régua 50/30/20 e
+// todos os parcelados, que são a fonte da verdade dos custos fixos.
 const TABELAS = [
-  'users', 'months', 'transactions', 'cards',
-  'card_purchases', 'card_invoice_payments', 'budgets', 'telegram_pending',
+  'users', 'months', 'transactions', 'budgets', 'budget_groups', 'parcelados',
+  'cards', 'card_purchases', 'card_invoice_payments', 'telegram_pending',
 ];
 
 const backup = {};
