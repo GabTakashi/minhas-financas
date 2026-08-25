@@ -6,7 +6,7 @@ import { useMonth, useToast } from '@/components/Providers';
 import PageHead from '@/components/PageHead';
 import EvolutionChart from '@/components/EvolutionChart';
 import Constancia from '@/components/Constancia';
-import FaixaReceita from '@/components/FaixaReceita';
+import FaixaRegra from '@/components/FaixaRegra';
 import ScorePainel from '@/components/ScorePainel';
 import {
   useAllMonths, useAllTransactions, useBudgetGroups, useBudgets, useDiasRegistrados,
@@ -103,12 +103,18 @@ export default function Home() {
     <>
       <PageHead title={`${greeting()}!`} sub="Acompanhe a evolução das suas finanças." />
 
-      <div className="summary">
-        <div className="card highlight">
-          <div className="label">Saldo do mês</div>
-          <div className="value">{fmtBRL(tRealizado.saldo)}</div>
-          <div className="sub">previsto: {fmtBRL(tPrevisto.saldo)} · entradas − saídas</div>
+      {/* Herói: a resposta da pergunta que se faz ao abrir o app, e a faixa
+          que mostra para onde o mês foi contra a régua 50/30/20. */}
+      <section className="heroi card">
+        <span className="card-label">Saldo de {monthName(month)}</span>
+        <div className="heroi-valor">{fmtBRL(tRealizado.saldo)}</div>
+        <div className="heroi-sub">
+          previsto <strong>{fmtBRL(tPrevisto.saldo)}</strong> · entradas − saídas
         </div>
+        <FaixaRegra pilares={ipf.pilares} renda={tPrevisto.entradas} />
+      </section>
+
+      <div className="summary tres">
         <div className="card">
           <div className="label">Entradas</div>
           <div className="value green">{fmtBRL(tRealizado.entradas)}</div>
@@ -143,7 +149,6 @@ export default function Home() {
         </Link>
       </div>
 
-      <FaixaReceita receita={tPrevisto.entradas} despesas={tPrevisto.saidas} />
 
       <div className="painel-duplo">
         <ScorePainel ipf={ipf} compacto />

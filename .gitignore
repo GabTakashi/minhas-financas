@@ -26,3 +26,8 @@ n8n/
 
 # backups do banco de dados (dados pessoais, nunca versionar)
 backups/
+
+# skills instaladas por `npx skills add` — codigo de terceiros, como node_modules.
+# O skills-lock.json fica versionado para dar pra reinstalar identico.
+.agents/
+.claude/skills/

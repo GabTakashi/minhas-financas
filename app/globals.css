@@ -1136,3 +1136,97 @@ a.nav-item { text-decoration: none; }
   .budget-row .b-spent { width: 100%; text-align: left; }
   .budget-row .b-cat { width: 100%; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Painel: herói e faixa da regra 50/30/20
+   A mono é a voz do dinheiro no app; em escala grande ela vira a face de
+   display, e a Urbanist recua para rótulo e interface.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.heroi {
+  position: relative; overflow: hidden;
+  margin-bottom: var(--s-4); padding: var(--s-6) var(--s-6) var(--s-5);
+}
+.heroi::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 220px;
+  background: var(--grad-halo); pointer-events: none;
+}
+.heroi > * { position: relative; }
+.heroi .card-label { margin-bottom: var(--s-3); }
+
+.heroi-valor {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(40px, 6.4vw, 68px); font-weight: 600;
+  line-height: 1; letter-spacing: -0.055em; white-space: nowrap;
+}
+.heroi-sub { font-size: 13px; color: var(--text-3); margin-top: var(--s-3); }
+.heroi-sub strong {
+  color: var(--text-2); font-weight: 500;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+
+/* ── a faixa: régua em cima, real embaixo, na mesma escala ── */
+.regra { margin-top: var(--s-6); }
+.regra-cabecalho {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s-3); margin-bottom: var(--s-2);
+}
+.regra-cabecalho .card-label { margin-bottom: 0; }
+.regra-cabecalho-nota {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 11px; color: var(--text-3); letter-spacing: .02em;
+}
+
+.regra-trilho { display: flex; gap: 2px; overflow: hidden; }
+.regra-trilho.alvo {
+  height: 7px; border-radius: var(--r-full); margin-bottom: 3px; opacity: .42;
+}
+.regra-trilho.real {
+  height: 30px; border-radius: var(--r-sm); background: var(--surface-3);
+}
+.regra-bloco { min-width: 2px; transition: filter 0.2s var(--ease); }
+.regra-trilho.real .regra-bloco:hover { filter: brightness(1.14); }
+.regra-bloco.s1 { background: var(--serie-1); }
+.regra-bloco.s2 { background: var(--serie-2); }
+.regra-bloco.s3 { background: var(--serie-3); }
+.regra-bloco.sobra { background: var(--surface-2); }
+/* estourou o próprio teto: hachura marca sem depender só de cor */
+.regra-bloco.estourou {
+  background-image: repeating-linear-gradient(
+    -45deg, transparent 0 5px, rgba(8,9,16,.26) 5px 10px
+  );
+}
+
+.regra-legenda {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s-2) var(--s-5); list-style: none; margin-top: var(--s-4);
+}
+.regra-legenda li {
+  display: flex; align-items: center; gap: var(--s-2);
+  font-size: 12.5px; padding: var(--s-1) 0;
+}
+.regra-ponto { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.regra-ponto.s1 { background: var(--serie-1); }
+.regra-ponto.s2 { background: var(--serie-2); }
+.regra-ponto.s3 { background: var(--serie-3); }
+.regra-ponto.sobra { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-medium); }
+.regra-nome { flex: 1; min-width: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regra-valor {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  color: var(--text-1); white-space: nowrap;
+}
+.regra-delta {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 11.5px; white-space: nowrap; text-align: right;
+}
+.regra-delta.dentro { color: var(--text-3); }
+.regra-delta.fora { color: var(--warning); }
+.regra-alvo { opacity: .5; }
+.regra-sobra-item .regra-nome { color: var(--text-3); }
+.regra-link { display: inline-block; margin-top: var(--s-4); font-size: 12.5px; }
+
+@media (max-width: 800px) {
+  .heroi { padding: var(--s-5) var(--s-4); }
+  .regra-trilho.real { height: 26px; }
+  .regra-legenda { grid-template-columns: 1fr; gap: 0; }
+}
